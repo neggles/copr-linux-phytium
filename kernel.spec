@@ -1767,7 +1767,7 @@ mkdir configs
 cd configs
 
 # Drop some necessary files from the source dir into the buildroot
-cp $RPM_SOURCE_DIR/%{name}-*.config .
+cp $RPM_SOURCE_DIR/kernel-*.config .
 cp %{SOURCE80} .
 # merge.py
 cp %{SOURCE3000} .
@@ -1922,7 +1922,7 @@ InitBuildVars() {
     Variant=$1
 
     # Pick the right kernel config file
-    Config=%{name}-%{specrpmversion}-%{_target_cpu}${Variant:+-${Variant}}.config
+    Config=kernel-%{specrpmversion}-%{_target_cpu}${Variant:+-${Variant}}.config
     DevelDir=/usr/src/kernels/%{KVERREL}${Variant:++${Variant}}
 
     KernelVer=%{specversion}-%{release}.%{_target_cpu}${Variant:++${Variant}}
