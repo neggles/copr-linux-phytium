@@ -470,7 +470,7 @@ Summary: The Linux kernel
 %endif
 %endif
 
-%define all_configs %{name}-%{specrpmversion}-*.config
+%define all_configs kernel-%{specrpmversion}-*.config
 
 # don't build noarch kernels or headers (duh)
 %ifarch noarch
