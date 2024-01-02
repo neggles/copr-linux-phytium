@@ -6,9 +6,9 @@ d41d8cd98f00b204e9800998ecf8427e  Module.kabi_dup_x86_64
 d41d8cd98f00b204e9800998ecf8427e  Module.kabi_ppc64le
 d41d8cd98f00b204e9800998ecf8427e  Module.kabi_s390x
 d41d8cd98f00b204e9800998ecf8427e  Module.kabi_x86_64
-913084622ee729f52f185f9896cbb1bd  kernel-abi-stablelists-6.6.8.tar.xz
-fad4fb8f25ba02229dacf67ef2149bb9  kernel-kabi-dw-6.6.8.tar.xz
-a2f3343d4d1b4d1730b0abeb8c9f4cdd  linux-6.6.8.tar.xz
+501838795b2cb85af1a1cd21ee3c4dd8  kernel-abi-stablelists-6.6.9.tar.xz
+86d7183c0396ee334db288d78f711ef5  kernel-kabi-dw-6.6.9.tar.xz
+5b2009502547066c6902442a6ccc5f2d  linux-6.6.9.tar.xz
 d41d8cd98f00b204e9800998ecf8427e  linux-kernel-test.patch
 ddc95d3bff0566054d613e9d2c356576  redhatsecureboot301.cer
 14cf8d7a48fa5e807d7a4cf722019d92  redhatsecureboot501.cer
