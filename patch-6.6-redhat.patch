@@ -19,7 +19,6 @@
  drivers/iommu/iommu.c                              |  22 ++
  drivers/net/wireless/ath/ath10k/wmi-tlv.c          |   4 +
  drivers/pci/quirks.c                               |  24 ++
- drivers/rtc/rtc-cmos.c                             |  18 +-
  drivers/scsi/sd.c                                  |  10 +
  drivers/usb/core/hub.c                             |   7 +
  include/linux/efi.h                                |  22 +-
@@ -41,46 +40,8 @@
  sound/pci/hda/cs35l41_hda_property.c               | 355 +++++++++++++++++++--
  sound/pci/hda/hda_component.h                      |   4 +
  sound/pci/hda/patch_realtek.c                      |  34 +-
- 43 files changed, 1132 insertions(+), 241 deletions(-)
+ 42 files changed, 1120 insertions(+), 235 deletions(-)
 
-diff --git a/Makefile b/Makefile
-index bad16eda67e2..cfd8719528dd 100644
---- a/Makefile
-+++ b/Makefile
-@@ -22,6 +22,18 @@ $(if $(filter __%, $(MAKECMDGOALS)), \
- PHONY := __all
- __all:
- 
-+# Set RHEL variables
-+# Note that this ifdef'ery is required to handle when building with
-+# the O= mechanism (relocate the object file results) due to upstream
-+# commit 67d7c302 which broke our RHEL include file
-+ifneq ($(realpath source),)
-+include $(realpath source)/Makefile.rhelver
-+else
-+ifneq ($(realpath Makefile.rhelver),)
-+include Makefile.rhelver
-+endif
-+endif
-+
- # We are using a recursive build, so we need to do a little thinking
- # to get the ordering right.
- #
-@@ -1250,7 +1262,13 @@ define filechk_version.h
- 	((c) > 255 ? 255 : (c)))';                                       \
- 	echo \#define LINUX_VERSION_MAJOR $(VERSION);                    \
- 	echo \#define LINUX_VERSION_PATCHLEVEL $(PATCHLEVEL);            \
--	echo \#define LINUX_VERSION_SUBLEVEL $(SUBLEVEL)
-+	echo \#define LINUX_VERSION_SUBLEVEL $(SUBLEVEL);                \
-+	echo '#define RHEL_MAJOR $(RHEL_MAJOR)'; \
-+	echo '#define RHEL_MINOR $(RHEL_MINOR)'; \
-+	echo '#define RHEL_RELEASE_VERSION(a,b) (((a) << 8) + (b))'; \
-+	echo '#define RHEL_RELEASE_CODE \
-+		$(shell expr $(RHEL_MAJOR) \* 256 + $(RHEL_MINOR))'; \
-+	echo '#define RHEL_RELEASE "$(RHEL_RELEASE)"'
- endef
- 
- $(version_h): PATCHLEVEL := $(or $(PATCHLEVEL), 0)
 diff --git a/arch/s390/include/asm/ipl.h b/arch/s390/include/asm/ipl.h
 index b0d00032479d..afb9544fb007 100644
 --- a/arch/s390/include/asm/ipl.h
@@ -549,7 +510,7 @@ index 000000000000..de0a3714a5d4
 +	}
 +}
 diff --git a/drivers/firmware/sysfb.c b/drivers/firmware/sysfb.c
-index 82fcfd29bc4d..17b7e096b682 100644
+index 3c197db42c9d..16e4a2e90fae 100644
 --- a/drivers/firmware/sysfb.c
 +++ b/drivers/firmware/sysfb.c
 @@ -34,6 +34,22 @@
@@ -1019,41 +980,6 @@ index e0081914052f..ae2d04c2f2b3 100644
  /*
   * Intersil/Techwell TW686[4589]-based video capture cards have an empty (zero)
   * class code.  Fix it.
-diff --git a/drivers/rtc/rtc-cmos.c b/drivers/rtc/rtc-cmos.c
-index 228fb2d11c70..696cfa7025de 100644
---- a/drivers/rtc/rtc-cmos.c
-+++ b/drivers/rtc/rtc-cmos.c
-@@ -818,18 +818,24 @@ static void rtc_wake_off(struct device *dev)
- }
- 
- #ifdef CONFIG_X86
--/* Enable use_acpi_alarm mode for Intel platforms no earlier than 2015 */
- static void use_acpi_alarm_quirks(void)
- {
--	if (boot_cpu_data.x86_vendor != X86_VENDOR_INTEL)
-+	switch (boot_cpu_data.x86_vendor) {
-+	case X86_VENDOR_INTEL:
-+		if (dmi_get_bios_year() < 2015)
-+			return;
-+		break;
-+	case X86_VENDOR_AMD:
-+	case X86_VENDOR_HYGON:
-+		if (dmi_get_bios_year() < 2021)
-+			return;
-+		break;
-+	default:
- 		return;
--
-+	}
- 	if (!is_hpet_enabled())
- 		return;
- 
--	if (dmi_get_bios_year() < 2015)
--		return;
--
- 	use_acpi_alarm = true;
- }
- #else
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 index c2e8d9e27749..c24dbb681664 100644
 --- a/drivers/scsi/sd.c
@@ -1169,10 +1095,10 @@ index 80b21d1c6eaf..b66c0683f2fc 100644
  enum efi_secureboot_mode efi_get_secureboot_mode(efi_get_variable_t *get_var)
  {
 diff --git a/include/linux/lsm_hook_defs.h b/include/linux/lsm_hook_defs.h
-index 2b8d85aae083..6a560e1abb59 100644
+index 74c60f9446f8..6a133239e27e 100644
 --- a/include/linux/lsm_hook_defs.h
 +++ b/include/linux/lsm_hook_defs.h
-@@ -405,6 +405,8 @@ LSM_HOOK(void, LSM_RET_VOID, bpf_prog_free_security, struct bpf_prog_aux *aux)
+@@ -407,6 +407,8 @@ LSM_HOOK(void, LSM_RET_VOID, bpf_prog_free_security, struct bpf_prog_aux *aux)
  #endif /* CONFIG_BPF_SYSCALL */
  
  LSM_HOOK(int, 0, locked_down, enum lockdown_reason what)
@@ -1384,10 +1310,10 @@ index ab7eea01ab42..fff7c5f737fc 100644
  
  int rmi_register_transport_device(struct rmi_transport_dev *xport);
 diff --git a/include/linux/security.h b/include/linux/security.h
-index 5f16eecde00b..974be25cfa70 100644
+index b50c7f566189..8a12e0f0a0fe 100644
 --- a/include/linux/security.h
 +++ b/include/linux/security.h
-@@ -484,6 +484,7 @@ int security_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen);
+@@ -486,6 +486,7 @@ int security_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen);
  int security_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen);
  int security_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen);
  int security_locked_down(enum lockdown_reason what);
@@ -1395,7 +1321,7 @@ index 5f16eecde00b..974be25cfa70 100644
  #else /* CONFIG_SECURITY */
  
  static inline int call_blocking_lsm_notifier(enum lsm_event event, void *data)
-@@ -1395,6 +1396,10 @@ static inline int security_locked_down(enum lockdown_reason what)
+@@ -1404,6 +1405,10 @@ static inline int security_locked_down(enum lockdown_reason what)
  {
  	return 0;
  }
@@ -1449,39 +1375,6 @@ index a2ff4242e623..f0d2be1ee4f1 100644
  }
  
  int module_sig_check(struct load_info *info, int flags)
-diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
-index ac4ef3e206bb..80ede130812c 100644
---- a/scripts/mod/modpost.c
-+++ b/scripts/mod/modpost.c
-@@ -23,6 +23,7 @@
- #include "modpost.h"
- #include "../../include/linux/license.h"
- #include "../../include/linux/module_symbol.h"
-+#include "../../include/generated/uapi/linux/version.h"
- 
- static bool module_enabled;
- /* Are we using CONFIG_MODVERSIONS? */
-@@ -2090,6 +2091,12 @@ static void write_buf(struct buffer *b, const char *fname)
- 	}
- }
- 
-+static void add_rhelversion(struct buffer *b, struct module *mod)
-+{
-+	buf_printf(b, "MODULE_INFO(rhelversion, \"%d.%d\");\n", RHEL_MAJOR,
-+		   RHEL_MINOR);
-+}
-+
- static void write_if_changed(struct buffer *b, const char *fname)
- {
- 	char *tmp;
-@@ -2150,6 +2157,7 @@ static void write_mod_c_file(struct module *mod)
- 	add_depends(&buf, mod);
- 	add_moddevtable(&buf, mod);
- 	add_srcversion(&buf, mod);
-+	add_rhelversion(&buf, mod);
- 
- 	ret = snprintf(fname, sizeof(fname), "%s.mod.c", mod->name);
- 	if (ret >= sizeof(fname)) {
 diff --git a/scripts/tags.sh b/scripts/tags.sh
 index a70d43723146..56d06b04f752 100755
 --- a/scripts/tags.sh
@@ -1556,10 +1449,10 @@ index 68d19632aeb7..ef348935b6ff 100644
  
  static int __init lockdown_lsm_init(void)
 diff --git a/security/security.c b/security/security.c
-index 23b129d482a7..55d0fe0d121b 100644
+index 840a3d58a290..947e76d2f482 100644
 --- a/security/security.c
 +++ b/security/security.c
-@@ -5230,6 +5230,18 @@ int security_locked_down(enum lockdown_reason what)
+@@ -5248,6 +5248,18 @@ int security_locked_down(enum lockdown_reason what)
  }
  EXPORT_SYMBOL(security_locked_down);
  

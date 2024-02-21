@@ -160,18 +160,21 @@ Summary: The Linux kernel
 #  the --with-release option overrides this setting.)
 %define debugbuildsenabled 1
 # define buildid .local
-%define specrpmversion 6.6.14
-%define specversion 6.6.14
 %define patchversion 6.6
 %define pkgrelease 200
-%define kversion 6
-%define tarfile_release 6.6.14
+%define kversion 6.6
+# Do we have a -stable update to apply?
+%define stable_update 17
+
+%define specversion %{kversion}.%{stable_update}
+%define specrpmversion %{kversion}.%{stable_update}
+%define tarfile_release 6.6
 # This is needed to do merge window version magic
 %define patchlevel 6
 # This allows pkg_release to have configurable %%{?dist} tag
 %define specrelease 200%{?buildid}%{?dist}
 # This defines the kabi tarball version
-%define kabiversion 6.6.14
+%define kabiversion 6.6.15
 
 # If this variable is set to 1, a bpf selftests build failure will cause a
 # fatal kernel package build error
@@ -790,13 +793,7 @@ BuildRequires: systemd-udev
 BuildRequires: tpm2-tools
 %endif
 
-# Because this is the kernel, it's hard to get a single upstream URL
-# to represent the base without needing to do a bunch of patching. This
-# tarball is generated from a src-git tree. If you want to see the
-# exact git commit you can run
-#
-# xzcat -qq ${TARBALL} | git get-tar-commit-id
-Source0: linux-%{tarfile_release}.tar.xz
+Source0: https://www.kernel.org/pub/linux/kernel/v6.x/linux-%{tarfile_release}.tar.xz
 
 Source1: Makefile.rhelver
 
@@ -973,6 +970,13 @@ Source4000: README.rst
 Source4001: rpminspect.yaml
 Source4002: gating.yaml
 
+# Here should be only the patches up to the upstream canonical Linus tree.
+
+# For a stable release kernel
+%if 0%{?stable_update}
+%define    stable_patch_00  patch-%{specversion}.xz
+Source5000: https://www.kernel.org/pub/linux/kernel/v6.x/%{stable_patch_00}
+%endif
 ## Patches needed for building this package
 
 %if !%{nopatches}
@@ -1688,7 +1692,7 @@ ApplyPatch()
     exit 1
   fi
   if ! grep -E "^Patch[0-9]+: $patch\$" %{_specdir}/${RPM_PACKAGE_NAME}.spec ; then
-    if [ "${patch:0:8}" != "patch-%{kversion}." ] ; then
+    if [ "${patch:0:8}" != "patch-6." ] ; then
       echo "ERROR: Patch  $patch  not listed as a source patch in specfile"
       exit 1
     fi
@@ -1719,7 +1723,9 @@ ApplyOptionalPatch()
 mv linux-%{tarfile_release} linux-%{KVERREL}
 
 cd linux-%{KVERREL}
-cp -a %{SOURCE1} .
+%if 0%{?stable_update}
+ApplyOptionalPatch %{stable_patch_00}
+%endif
 
 %if !%{nopatches}
 
@@ -3709,6 +3715,10 @@ fi\
 #
 #
 %changelog
+* Wed Jan 31 2024 Justin M. Forbes <jforbes@fedoraproject.org> [6.6.15-0]
+- Config update for stable backport (Justin M. Forbes)
+- Linux v6.6.15
+
 * Fri Jan 26 2024 Augusto Caringi <acaringi@redhat.com> [6.6.14-0]
 - Add some CVE fixes staged for 6.6.14 (Justin M. Forbes)
 - Linux v6.6.14
