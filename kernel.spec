@@ -129,7 +129,7 @@ Summary: The Linux kernel
 %if 0%{?fedora}
 %define primary_target fedora
 %else
-%define primary_target rhel
+%define primary_target fedora
 %endif
 
 #
@@ -982,6 +982,7 @@ Source5000: https://www.kernel.org/pub/linux/kernel/v6.x/%{stable_patch_00}
 %if !%{nopatches}
 
 Patch1: patch-%{patchversion}-redhat.patch
+Patch2: patch-%{patchversion}-tegra.patch
 %endif
 
 # empty final patch to facilitate testing of kernel patches
@@ -1730,6 +1731,7 @@ ApplyOptionalPatch %{stable_patch_00}
 %if !%{nopatches}
 
 ApplyOptionalPatch patch-%{patchversion}-redhat.patch
+ApplyOptionalPatch patch-%{patchversion}-tegra.patch
 %endif
 
 ApplyOptionalPatch linux-kernel-test.patch
