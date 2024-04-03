@@ -129,7 +129,7 @@ Summary: The Linux kernel
 %if 0%{?fedora}
 %define primary_target fedora
 %else
-%define primary_target fedora
+%define primary_target rhel
 %endif
 
 #
@@ -164,7 +164,7 @@ Summary: The Linux kernel
 %define pkgrelease 200
 %define kversion 6.6
 # Do we have a -stable update to apply?
-%define stable_update 23
+%define stable_update 24
 
 %define specversion %{kversion}.%{stable_update}
 %define specrpmversion %{kversion}.%{stable_update}
