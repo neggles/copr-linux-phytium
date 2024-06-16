@@ -164,7 +164,7 @@ Summary: The Linux kernel
 %define pkgrelease 200
 %define kversion 6.6
 # Do we have a -stable update to apply?
-%define stable_update 32
+%define stable_update 34
 
 %define specversion %{kversion}.%{stable_update}
 %define specrpmversion %{kversion}.%{stable_update}
@@ -1232,7 +1232,7 @@ This package provides debug information for the bpftool package.
 
 %package selftests-internal
 Summary: Kernel samples and selftests
-Requires: binutils, bpftool, iproute-tc, nmap-ncat, python3, fuse-libs
+Requires: binutils, bpftool, iproute-tc, nmap-ncat, python3, fuse-libs, keyutils
 %description selftests-internal
 Kernel sample programs and selftests.
 
@@ -1241,6 +1241,8 @@ Kernel sample programs and selftests.
 # the leading .*, because of find-debuginfo.sh's buggy handling
 # of matching the pattern against the symlinks file.
 %{expand:%%global _find_debuginfo_opts %{?_find_debuginfo_opts} -p '.*%%{_libexecdir}/(ksamples|kselftests)/.*|XXX' -o selftests-debuginfo.list}
+
+%define __requires_exclude ^liburandom_read.so.*$
 
 # with_selftests
 %endif
@@ -1465,7 +1467,8 @@ The meta-package for the %{1} kernel\
 %package %{?1:%{1}-}kvm\
 Summary: KVM modules for package kernel%{?1:-%{1}}\
 Group: System Environment/Kernel\
-Requires: kernel%{?1:-%{1}} = %{version}-%{release}\
+Requires: kernel-uname-r = %{KVERREL}%{uname_suffix %{?1:%{1}}}\
+Requires: kernel%{?1:-%{1}}-modules-core-uname-r = %{KVERREL}%{uname_suffix %{?1:+%{1}}}\
 Provides: installonlypkg(kernel-module)\
 Provides: kernel%{?1:-%{1}}-kvm-%{_target_cpu} = %{version}-%{release}\
 AutoReq: no\
