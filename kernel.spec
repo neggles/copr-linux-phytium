@@ -164,7 +164,7 @@ Summary: The Linux kernel
 %define pkgrelease 200
 %define kversion 6.6
 # Do we have a -stable update to apply?
-%define stable_update 37
+%define stable_update 38
 
 %define specversion %{kversion}.%{stable_update}
 %define specrpmversion %{kversion}.%{stable_update}
@@ -709,6 +709,9 @@ BuildRequires: libnl3-devel
 %endif
 %if %{with_tools} || %{signmodules} || %{signkernel}
 BuildRequires: openssl-devel
+%if 0%{?fedora} > 40
+BuildRequires: openssl-devel-engine
+%endif
 %endif
 %if %{with_bpftool}
 BuildRequires: python3-docutils
