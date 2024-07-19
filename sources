@@ -10,7 +10,7 @@ de6e122478c85edddf19f0db9e028b36  kernel-abi-stablelists-6.6.15.tar.xz
 a85c4a8eed600bd07abc18e92abf49d0  kernel-kabi-dw-6.6.15.tar.xz
 452098d80ba925af3a4ab35998f3aef5  linux-6.6.tar.xz
 d41d8cd98f00b204e9800998ecf8427e  linux-kernel-test.patch
-95bed83477f6af10c8aaf9df6c4eec0a  patch-6.6.39.xz
+befb225695a6ef309c1f58e5f5077432  patch-6.6.41.xz
 ddc95d3bff0566054d613e9d2c356576  redhatsecureboot301.cer
 14cf8d7a48fa5e807d7a4cf722019d92  redhatsecureboot501.cer
 0d53abfc8240900e1df50bfcc0e05aa8  redhatsecurebootca1.cer
