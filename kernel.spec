@@ -164,7 +164,7 @@ Summary: The Linux kernel
 %define pkgrelease 200
 %define kversion 6.6
 # Do we have a -stable update to apply?
-%define stable_update 41
+%define stable_update 42
 
 %define specversion %{kversion}.%{stable_update}
 %define specrpmversion %{kversion}.%{stable_update}
