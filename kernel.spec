@@ -56,7 +56,7 @@
 
 # Replace '-' with '_' where needed so that variants can use '-' in
 # their name.
-%define uname_suffix %{lua:
+%define uname_suffix() %{lua:
 	local flavour = rpm.expand('%{?1:+%{1}}')
 	flavour = flavour:gsub('-', '_')
 	if flavour ~= '' then
@@ -69,7 +69,7 @@
 # string. However, kernel-64k-debug is the debug version of kernel-64k,
 # in this case we need to return "64k", and so on. This is used in
 # macros below where we need this for some uname based requires.
-%define uname_variant %{lua:
+%define uname_variant() %{lua:
 	local flavour = rpm.expand('%{?1:%{1}}')
 	_, _, main, sub = flavour:find("(%w+)-(.*)")
 	if main then
@@ -129,7 +129,7 @@ Summary: The Linux kernel
 %if 0%{?fedora}
 %define primary_target fedora
 %else
-%define primary_target rhel
+%define primary_target fedora
 %endif
 
 #
