@@ -164,7 +164,7 @@ Summary: The Linux kernel
 %define pkgrelease 200
 %define kversion 6.6
 # Do we have a -stable update to apply?
-%define stable_update 51
+%define stable_update 52
 
 %define specversion %{kversion}.%{stable_update}
 %define specrpmversion %{kversion}.%{stable_update}
@@ -208,7 +208,7 @@ Summary: The Linux kernel
 # kernel-16k (aarch64 kernel with 16K page_size)
 %define with_arm64_16k %{?_with_arm64_16k:    1} %{?!_with_arm64_16k:    0}
 # kernel-64k (aarch64 kernel with 64K page_size)
-%define with_arm64_64k %{?_without_arm64_64k: 0} %{?!_without_arm64_64k: 1}
+%define with_arm64_64k %{?_without_arm64_64k: 0} %{?!_without_arm64_64k: 0}
 # kernel-rt (x86_64 and aarch64 only PREEMPT_RT enabled kernel)
 %define with_realtime  %{?_with_realtime:     1} %{?!_with_realtime:     0}
 
@@ -622,7 +622,7 @@ Summary: The Linux kernel
 %define with_arm64_16k_base 0
 %endif
 %if %{with_arm64_64k} && %{with_base}
-%define with_arm64_64k_base 1
+%define with_arm64_64k_base 0
 %else
 %define with_arm64_64k_base 0
 %endif
@@ -2410,7 +2410,7 @@ BuildKernel() {
             # in case below list needs to be extended, remember to add a
             # matching ghost entry in the files section as well
             rm -f modules.{alias,alias.bin,builtin.alias.bin,builtin.bin} \
-                  modules.{dep,dep.bin,devname,softdep,symbols,symbols.bin}
+                  modules.{dep,dep.bin,devname,softdep,symbols,symbols.bin,weakdep}
         popd
     }
 
@@ -3619,6 +3619,7 @@ fi\
 %ghost %attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/modules.softdep\
 %ghost %attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/modules.symbols\
 %ghost %attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/modules.symbols.bin\
+%ghost %attr(0644, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/modules.weakdep\
 %{expand:%%files -f kernel-%{?3:%{3}-}modules.list %{?3:%{3}-}modules}\
 %{expand:%%files %{?3:%{3}-}devel}\
 %defverify(not mtime)\
