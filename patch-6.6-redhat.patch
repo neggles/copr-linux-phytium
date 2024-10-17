@@ -1,8 +1,50 @@
-commit 9884107af289f8a441156b7a7eff73c39e74467e
-Author: Nicolas Chauvet <kwizart@gmail.com>
-Date:   Wed Mar 27 18:01:43 2024 +0100
+From fc4c40ca1f332f2285c74eed80c8cfc94264dde0 Mon Sep 17 00:00:00 2001
+From: Nicolas Chauvet <kwizart@gmail.com>
+Date: Wed, 27 Mar 2024 18:01:43 +0100
+Subject: [PATCH] Add redhat patches
 
-    Add redhat patches
+---
+ arch/s390/include/asm/ipl.h                   |   1 +
+ arch/s390/kernel/ipl.c                        |   5 +
+ arch/s390/kernel/setup.c                      |   4 +
+ arch/x86/kernel/setup.c                       |  22 +-
+ drivers/acpi/apei/hest.c                      |   8 +
+ drivers/acpi/irq.c                            |  17 +-
+ drivers/acpi/scan.c                           |   9 +
+ drivers/ata/libahci.c                         |  18 +
+ drivers/char/ipmi/ipmi_dmi.c                  |  15 +
+ drivers/char/ipmi/ipmi_msghandler.c           |  16 +-
+ drivers/firmware/efi/Makefile                 |   1 +
+ drivers/firmware/efi/efi.c                    | 124 ++++--
+ drivers/firmware/efi/secureboot.c             |  38 ++
+ drivers/firmware/sysfb.c                      |  18 +-
+ drivers/hid/hid-rmi.c                         |  66 ----
+ .../coresight/coresight-etm4x-core.c          |  19 +
+ drivers/input/rmi4/rmi_driver.c               | 124 +++---
+ drivers/iommu/iommu.c                         |  22 ++
+ drivers/pci/quirks.c                          |  24 ++
+ drivers/scsi/sd.c                             |  10 +
+ include/linux/efi.h                           |  22 +-
+ include/linux/lsm_hook_defs.h                 |   2 +
+ include/linux/module.h                        |   1 +
+ include/linux/rh_kabi.h                       | 172 +++++++++
+ include/linux/rmi.h                           |   1 +
+ include/linux/security.h                      |   5 +
+ kernel/module/main.c                          |   2 +
+ kernel/module/signing.c                       |   9 +-
+ scripts/tags.sh                               |   2 +
+ security/integrity/platform_certs/load_uefi.c |   6 +-
+ security/lockdown/Kconfig                     |  13 +
+ security/lockdown/lockdown.c                  |   1 +
+ security/security.c                           |  12 +
+ sound/pci/hda/cs35l41_hda.c                   | 106 +++++-
+ sound/pci/hda/cs35l41_hda.h                   |   8 +-
+ sound/pci/hda/cs35l41_hda_property.c          | 355 ++++++++++++++++--
+ sound/pci/hda/hda_component.h                 |   4 +
+ sound/pci/hda/patch_realtek.c                 |  34 +-
+ 38 files changed, 1082 insertions(+), 234 deletions(-)
+ create mode 100644 drivers/firmware/efi/secureboot.c
+ create mode 100644 include/linux/rh_kabi.h
 
 diff --git a/arch/s390/include/asm/ipl.h b/arch/s390/include/asm/ipl.h
 index b0d00032479d..afb9544fb007 100644
@@ -17,7 +59,7 @@ index b0d00032479d..afb9544fb007 100644
  /*
   * DIAG 308 support
 diff --git a/arch/s390/kernel/ipl.c b/arch/s390/kernel/ipl.c
-index 8d0b95c17312..118ae555a179 100644
+index a3d3cb39b021..c02de966da1a 100644
 --- a/arch/s390/kernel/ipl.c
 +++ b/arch/s390/kernel/ipl.c
 @@ -2520,3 +2520,8 @@ int ipl_report_free(struct ipl_report *report)
@@ -30,7 +72,7 @@ index 8d0b95c17312..118ae555a179 100644
 +	return !!ipl_secure_flag;
 +}
 diff --git a/arch/s390/kernel/setup.c b/arch/s390/kernel/setup.c
-index de6ad0fb2328..5cc2758be027 100644
+index d48c7afe97e6..09fd497b28ba 100644
 --- a/arch/s390/kernel/setup.c
 +++ b/arch/s390/kernel/setup.c
 @@ -49,6 +49,7 @@
@@ -52,7 +94,7 @@ index de6ad0fb2328..5cc2758be027 100644
  	/* boot_command_line has been already set up in early.c */
  	*cmdline_p = boot_command_line;
 diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
-index e63a8d05ce29..92700cd1048e 100644
+index eb129277dcdd..da9c49b8a640 100644
 --- a/arch/x86/kernel/setup.c
 +++ b/arch/x86/kernel/setup.c
 @@ -20,6 +20,7 @@
@@ -63,7 +105,7 @@ index e63a8d05ce29..92700cd1048e 100644
  #include <linux/usb/xhci-dbgp.h>
  #include <linux/static_call.h>
  #include <linux/swiotlb.h>
-@@ -1027,6 +1028,13 @@ void __init setup_arch(char **cmdline_p)
+@@ -1028,6 +1029,13 @@ void __init setup_arch(char **cmdline_p)
  	if (efi_enabled(EFI_BOOT))
  		efi_init();
  
@@ -77,7 +119,7 @@ index e63a8d05ce29..92700cd1048e 100644
  	reserve_ibft_region();
  	x86_init.resources.dmi_setup();
  
-@@ -1188,19 +1196,7 @@ void __init setup_arch(char **cmdline_p)
+@@ -1190,19 +1198,7 @@ void __init setup_arch(char **cmdline_p)
  	/* Allocate bigger log buffer */
  	setup_log_buf(1);
  
@@ -161,7 +203,7 @@ index 1687483ff319..390b67f19181 100644
  	return ctx.rc;
  }
 diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
-index 597d75baa1cc..ee38441143bf 100644
+index c0c5c5c58ae1..5fb3fde53f5a 100644
 --- a/drivers/acpi/scan.c
 +++ b/drivers/acpi/scan.c
 @@ -1753,6 +1753,15 @@ static bool acpi_device_enumeration_by_parent(struct acpi_device *device)
@@ -472,7 +514,7 @@ index 000000000000..de0a3714a5d4
 +	}
 +}
 diff --git a/drivers/firmware/sysfb.c b/drivers/firmware/sysfb.c
-index 3c197db42c9d..16e4a2e90fae 100644
+index defd7a36cb08..09146688cb35 100644
 --- a/drivers/firmware/sysfb.c
 +++ b/drivers/firmware/sysfb.c
 @@ -34,6 +34,22 @@
@@ -498,7 +540,7 @@ index 3c197db42c9d..16e4a2e90fae 100644
  static struct platform_device *pd;
  static DEFINE_MUTEX(disable_lock);
  static bool disabled;
-@@ -85,7 +101,7 @@ static __init int sysfb_init(void)
+@@ -87,7 +103,7 @@ static __init int sysfb_init(void)
  
  	/* try to create a simple-framebuffer device */
  	compatible = sysfb_parse_mode(si, &mode);
@@ -610,7 +652,7 @@ index 84e7ba5314d3..efc96776f761 100644
  	data->xport.ops = &hid_rmi_ops;
  
 diff --git a/drivers/hwtracing/coresight/coresight-etm4x-core.c b/drivers/hwtracing/coresight/coresight-etm4x-core.c
-index 18c4544f6045..4c37cdc40426 100644
+index 840e4cccf8c4..a214d6c51f69 100644
 --- a/drivers/hwtracing/coresight/coresight-etm4x-core.c
 +++ b/drivers/hwtracing/coresight/coresight-etm4x-core.c
 @@ -10,6 +10,7 @@
@@ -621,7 +663,7 @@ index 18c4544f6045..4c37cdc40426 100644
  #include <linux/io.h>
  #include <linux/err.h>
  #include <linux/fs.h>
-@@ -2303,6 +2304,16 @@ static const struct amba_id etm4_ids[] = {
+@@ -2308,6 +2309,16 @@ static const struct amba_id etm4_ids[] = {
  	{},
  };
  
@@ -638,7 +680,7 @@ index 18c4544f6045..4c37cdc40426 100644
  MODULE_DEVICE_TABLE(amba, etm4_ids);
  
  static struct amba_driver etm4x_amba_driver = {
-@@ -2372,6 +2383,11 @@ static int __init etm4x_init(void)
+@@ -2377,6 +2388,11 @@ static int __init etm4x_init(void)
  {
  	int ret;
  
@@ -650,7 +692,7 @@ index 18c4544f6045..4c37cdc40426 100644
  	ret = etm4_pm_setup();
  
  	/* etm4_pm_setup() does its own cleanup - exit on error */
-@@ -2398,6 +2414,9 @@ static int __init etm4x_init(void)
+@@ -2403,6 +2419,9 @@ static int __init etm4x_init(void)
  
  static void __exit etm4x_exit(void)
  {
@@ -661,7 +703,7 @@ index 18c4544f6045..4c37cdc40426 100644
  	platform_driver_unregister(&etm4_platform_driver);
  	etm4_pm_clear();
 diff --git a/drivers/input/rmi4/rmi_driver.c b/drivers/input/rmi4/rmi_driver.c
-index 258d5fe3d395..f7298e3dc8f3 100644
+index ef9ea295f9e0..0103334e8f32 100644
 --- a/drivers/input/rmi4/rmi_driver.c
 +++ b/drivers/input/rmi4/rmi_driver.c
 @@ -182,34 +182,47 @@ void rmi_set_attn_data(struct rmi_device *rmi_dev, unsigned long irq_status,
@@ -824,16 +866,16 @@ index 258d5fe3d395..f7298e3dc8f3 100644
  	}
  
  out:
-@@ -981,6 +997,8 @@ static int rmi_driver_remove(struct device *dev)
- 	irq_domain_remove(data->irqdomain);
- 	data->irqdomain = NULL;
+@@ -978,6 +994,8 @@ static int rmi_driver_remove(struct device *dev)
+ 
+ 	rmi_disable_irq(rmi_dev, false);
  
 +	cancel_work_sync(&data->attn_work);
 +
  	rmi_f34_remove_sysfs(rmi_dev);
  	rmi_free_function_list(rmi_dev);
  
-@@ -1219,9 +1237,15 @@ static int rmi_driver_probe(struct device *dev)
+@@ -1223,9 +1241,15 @@ static int rmi_driver_probe(struct device *dev)
  		}
  	}
  
@@ -853,7 +895,7 @@ index 258d5fe3d395..f7298e3dc8f3 100644
  	if (data->f01_container->dev.driver) {
  		/* Driver already bound, so enable ATTN now. */
 diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
-index 3a67e636287a..eb5e796277d6 100644
+index 3f1029c0825e..c64bb71e8deb 100644
 --- a/drivers/iommu/iommu.c
 +++ b/drivers/iommu/iommu.c
 @@ -8,6 +8,7 @@
@@ -893,10 +935,10 @@ index 3a67e636287a..eb5e796277d6 100644
   * iommu_setup_default_domain - Set the default_domain for the group
   * @group: Group to change
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index b3976dcb71f1..54b122be6f35 100644
+index 54061b65a2b7..a047c060fb78 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
-@@ -4426,6 +4426,30 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM, 0x9000,
+@@ -4445,6 +4445,30 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM, 0x9000,
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM, 0x9084,
  				quirk_bridge_cavm_thrx2_pcie_root);
  
@@ -928,7 +970,7 @@ index b3976dcb71f1..54b122be6f35 100644
   * Intersil/Techwell TW686[4589]-based video capture cards have an empty (zero)
   * class code.  Fix it.
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
-index e80c33cdad2b..3064ada8b6b8 100644
+index 2c627deedc1f..7fbfe4fb790a 100644
 --- a/drivers/scsi/sd.c
 +++ b/drivers/scsi/sd.c
 @@ -118,6 +118,14 @@ static const char *sd_cache_types[] = {
@@ -946,7 +988,7 @@ index e80c33cdad2b..3064ada8b6b8 100644
  static void sd_set_flush_flag(struct scsi_disk *sdkp)
  {
  	bool wc = false, fua = false;
-@@ -4084,6 +4092,8 @@ static int __init init_sd(void)
+@@ -4090,6 +4098,8 @@ static int __init init_sd(void)
  		goto err_out_class;
  	}
  
@@ -1024,7 +1066,7 @@ index 80b21d1c6eaf..b66c0683f2fc 100644
  enum efi_secureboot_mode efi_get_secureboot_mode(efi_get_variable_t *get_var)
  {
 diff --git a/include/linux/lsm_hook_defs.h b/include/linux/lsm_hook_defs.h
-index 489362b0cd85..49933ea3afa9 100644
+index 2923754c13bc..c374e00db283 100644
 --- a/include/linux/lsm_hook_defs.h
 +++ b/include/linux/lsm_hook_defs.h
 @@ -407,6 +407,8 @@ LSM_HOOK(void, LSM_RET_VOID, bpf_prog_free_security, struct bpf_prog_aux *aux)
@@ -1239,7 +1281,7 @@ index ab7eea01ab42..fff7c5f737fc 100644
  
  int rmi_register_transport_device(struct rmi_transport_dev *xport);
 diff --git a/include/linux/security.h b/include/linux/security.h
-index b50c7f566189..8a12e0f0a0fe 100644
+index 4bd0f6fc553e..3214365929b5 100644
 --- a/include/linux/security.h
 +++ b/include/linux/security.h
 @@ -486,6 +486,7 @@ int security_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen);
@@ -1262,7 +1304,7 @@ index b50c7f566189..8a12e0f0a0fe 100644
  
  #if defined(CONFIG_SECURITY) && defined(CONFIG_WATCH_QUEUE)
 diff --git a/kernel/module/main.c b/kernel/module/main.c
-index 34d9e718c2c7..1c8b40b19014 100644
+index b00e31721a73..0f691787fffd 100644
 --- a/kernel/module/main.c
 +++ b/kernel/module/main.c
 @@ -528,6 +528,7 @@ static struct module_attribute modinfo_##field = {                    \
@@ -1378,10 +1420,10 @@ index 68d19632aeb7..ef348935b6ff 100644
  
  static int __init lockdown_lsm_init(void)
 diff --git a/security/security.c b/security/security.c
-index 407b51719f79..bffb48f02087 100644
+index b6144833c7a8..48c70c78a1bd 100644
 --- a/security/security.c
 +++ b/security/security.c
-@@ -5283,6 +5283,18 @@ int security_locked_down(enum lockdown_reason what)
+@@ -5285,6 +5285,18 @@ int security_locked_down(enum lockdown_reason what)
  }
  EXPORT_SYMBOL(security_locked_down);
  
@@ -1401,7 +1443,7 @@ index 407b51719f79..bffb48f02087 100644
  /**
   * security_perf_event_open() - Check if a perf event open is allowed
 diff --git a/sound/pci/hda/cs35l41_hda.c b/sound/pci/hda/cs35l41_hda.c
-index 3c157b006a5a..257f71e9ec07 100644
+index b437beae9b51..b641e5e88a39 100644
 --- a/sound/pci/hda/cs35l41_hda.c
 +++ b/sound/pci/hda/cs35l41_hda.c
 @@ -33,6 +33,9 @@
@@ -2046,10 +2088,10 @@ index f170aec967c1..bbd6f0ed16c1 100644
  	void (*playback_hook)(struct device *dev, int action);
  	void (*post_playback_hook)(struct device *dev, int action);
 diff --git a/sound/pci/hda/patch_realtek.c b/sound/pci/hda/patch_realtek.c
-index 0db9326b6f84..f747fcae24bb 100644
+index 07e1547fff2e..beea19839508 100644
 --- a/sound/pci/hda/patch_realtek.c
 +++ b/sound/pci/hda/patch_realtek.c
-@@ -9981,22 +9981,28 @@ static const struct snd_pci_quirk alc269_fixup_tbl[] = {
+@@ -10042,23 +10042,29 @@ static const struct snd_pci_quirk alc269_fixup_tbl[] = {
  	SND_PCI_QUIRK(0x1043, 0x1313, "Asus K42JZ", ALC269VB_FIXUP_ASUS_MIC_NO_PRESENCE),
  	SND_PCI_QUIRK(0x1043, 0x13b0, "ASUS Z550SA", ALC256_FIXUP_ASUS_MIC),
  	SND_PCI_QUIRK(0x1043, 0x1427, "Asus Zenbook UX31E", ALC269VB_FIXUP_ASUS_ZENBOOK),
@@ -2075,6 +2117,7 @@ index 0db9326b6f84..f747fcae24bb 100644
 -	SND_PCI_QUIRK(0x1043, 0x1663, "ASUS GU603ZV", ALC285_FIXUP_ASUS_HEADSET_MIC),
 +	SND_PCI_QUIRK(0x1043, 0x1663, "ASUS GU603ZI/ZJ/ZQ/ZU/ZV", ALC285_FIXUP_ASUS_HEADSET_MIC),
  	SND_PCI_QUIRK(0x1043, 0x1683, "ASUS UM3402YAR", ALC287_FIXUP_CS35L41_I2C_2),
+ 	SND_PCI_QUIRK(0x1043, 0x16a3, "ASUS UX3402VA", ALC245_FIXUP_CS35L41_SPI_2),
  	SND_PCI_QUIRK(0x1043, 0x16b2, "ASUS GU603", ALC289_FIXUP_ASUS_GA401),
 +	SND_PCI_QUIRK(0x1043, 0x16d3, "ASUS UX5304VA", ALC245_FIXUP_CS35L41_SPI_2),
  	SND_PCI_QUIRK(0x1043, 0x16e3, "ASUS UX50", ALC269_FIXUP_STEREO_DMIC),
@@ -2087,7 +2130,7 @@ index 0db9326b6f84..f747fcae24bb 100644
  	SND_PCI_QUIRK(0x1043, 0x1881, "ASUS Zephyrus S/M", ALC294_FIXUP_ASUS_GX502_PINS),
  	SND_PCI_QUIRK(0x1043, 0x18b1, "Asus MJ401TA", ALC256_FIXUP_ASUS_HEADSET_MIC),
  	SND_PCI_QUIRK(0x1043, 0x18d3, "ASUS UM3504DA", ALC294_FIXUP_CS35L41_I2C_2),
-@@ -10021,10 +10027,13 @@ static const struct snd_pci_quirk alc269_fixup_tbl[] = {
+@@ -10083,10 +10089,13 @@ static const struct snd_pci_quirk alc269_fixup_tbl[] = {
  	SND_PCI_QUIRK(0x1043, 0x1c43, "ASUS UX8406MA", ALC245_FIXUP_CS35L41_SPI_2),
  	SND_PCI_QUIRK(0x1043, 0x1c62, "ASUS GU603", ALC289_FIXUP_ASUS_GA401),
  	SND_PCI_QUIRK(0x1043, 0x1c92, "ASUS ROG Strix G15", ALC285_FIXUP_ASUS_G533Z_PINS),
@@ -2104,7 +2147,7 @@ index 0db9326b6f84..f747fcae24bb 100644
  	SND_PCI_QUIRK(0x1043, 0x1d42, "ASUS Zephyrus G14 2022", ALC289_FIXUP_ASUS_GA401),
  	SND_PCI_QUIRK(0x1043, 0x1d4e, "ASUS TM420", ALC256_FIXUP_ASUS_HPE),
  	SND_PCI_QUIRK(0x1043, 0x1da2, "ASUS UP6502ZA/ZD", ALC245_FIXUP_CS35L41_SPI_2),
-@@ -10040,6 +10049,7 @@ static const struct snd_pci_quirk alc269_fixup_tbl[] = {
+@@ -10100,6 +10109,7 @@ static const struct snd_pci_quirk alc269_fixup_tbl[] = {
  	SND_PCI_QUIRK(0x1043, 0x1c52, "ASUS Zephyrus G15 2022", ALC289_FIXUP_ASUS_GA401),
  	SND_PCI_QUIRK(0x1043, 0x1f11, "ASUS Zephyrus G14", ALC289_FIXUP_ASUS_GA401),
  	SND_PCI_QUIRK(0x1043, 0x1f12, "ASUS UM5302", ALC287_FIXUP_CS35L41_I2C_2),
@@ -2112,3 +2155,6 @@ index 0db9326b6f84..f747fcae24bb 100644
  	SND_PCI_QUIRK(0x1043, 0x1f62, "ASUS UX7602ZM", ALC245_FIXUP_CS35L41_SPI_2),
  	SND_PCI_QUIRK(0x1043, 0x1f92, "ASUS ROG Flow X16", ALC289_FIXUP_ASUS_GA401),
  	SND_PCI_QUIRK(0x1043, 0x3030, "ASUS ZN270IE", ALC256_FIXUP_ASUS_AIO_GPIO2),
+-- 
+2.46.2
+
