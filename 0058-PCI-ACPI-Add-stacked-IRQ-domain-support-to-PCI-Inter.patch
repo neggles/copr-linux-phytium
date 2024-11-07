@@ -1,0 +1,279 @@
+From 4a58befce51f258194ff1ff55f09373c5fb0c87d Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:05 +0800
+Subject: [PATCH 058/150] PCI/ACPI: Add stacked IRQ domain support to PCI
+ Interrupt Link
+
+The ResourceSource field of an Extended Interrupt Descriptor was ignored
+when the driver is parsing _PRS method of PNP0C0F PCI Interrupt Link
+devices, which means PCI INTx would be always registered under the GSI
+domain. This patch introduces stacked IRQ domain support to PCI Interrupt
+Link devices for ACPI.
+
+With this support, we can populate the ResourceSource field in _PRS method
+of PCI Interrupt Link devices to refer to a device object that describes
+an interrupt controller as the following examples:
+
+  Device (IXIU) {
+    ...
+  }
+
+  Device(LINKA) {
+    Name(_HID, EISAID("PNP0C0F"))
+    Name(_PRS, ResourceTemplate(){
+      Interrupt(ResourceProducer, Level, ActiveHigh, Exclusive,
+                0, "\\SB.IXIU") { 60 }
+    })
+    ...
+  }
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Id9057169c44365d0fb4f0fa1315a6d07662d2717
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/acpi/internal.h     | 12 ++++++++++++
+ drivers/acpi/irq.c          | 35 ++++++++++++++++++++++-------------
+ drivers/acpi/pci_irq.c      |  8 ++++++--
+ drivers/acpi/pci_link.c     | 21 +++++++++++++++++++--
+ include/acpi/acpi_drivers.h |  2 +-
+ include/linux/acpi.h        | 12 ++++++++++++
+ 6 files changed, 72 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/acpi/internal.h b/drivers/acpi/internal.h
+index 1e8ee97fc85f..3642bd38603b 100644
+--- a/drivers/acpi/internal.h
++++ b/drivers/acpi/internal.h
+@@ -85,6 +85,18 @@ bool acpi_scan_is_offline(struct acpi_device *adev, bool uevent);
+ acpi_status acpi_sysfs_table_handler(u32 event, void *table, void *context);
+ void acpi_scan_table_notify(void);
+ 
++#ifdef CONFIG_ACPI_GENERIC_GSI
++int acpi_register_irq(struct device *dev, u32 hwirq, int trigger,
++		      int polarity, struct fwnode_handle *fwnode);
++#else
++static inline
++int acpi_register_irq(struct device *dev, u32 hwirq, int trigger,
++		      int polarity, struct fwnode_handle *fwnode)
++{
++	return acpi_register_gsi(dev, hwirq, trigger, polarity);
++}
++#endif
++
+ /* --------------------------------------------------------------------------
+                      Device Node Initialization / Removal
+    -------------------------------------------------------------------------- */
+diff --git a/drivers/acpi/irq.c b/drivers/acpi/irq.c
+index 1687483ff319..9beed6af6f95 100644
+--- a/drivers/acpi/irq.c
++++ b/drivers/acpi/irq.c
+@@ -10,6 +10,8 @@
+ #include <linux/irqdomain.h>
+ #include <linux/of.h>
+ 
++#include "internal.h"
++
+ enum acpi_irq_model_id acpi_irq_model;
+ 
+ static struct fwnode_handle *(*acpi_get_gsi_domain_id)(u32 gsi);
+@@ -43,6 +45,24 @@ int acpi_gsi_to_irq(u32 gsi, unsigned int *irq)
+ }
+ EXPORT_SYMBOL_GPL(acpi_gsi_to_irq);
+ 
++int acpi_register_irq(struct device *dev, u32 hwirq, int trigger,
++		      int polarity, struct fwnode_handle *fwnode)
++{
++	struct irq_fwspec fwspec;
++
++	if (!fwnode) {
++		dev_warn(dev, "No registered irqchip for hwirq %d\n", hwirq);
++		return -EINVAL;
++	}
++
++	fwspec.fwnode = fwnode;
++	fwspec.param[0] = hwirq;
++	fwspec.param[1] = acpi_dev_get_irq_type(trigger, polarity);
++	fwspec.param_count = 2;
++
++	return irq_create_fwspec_mapping(&fwspec);
++}
++
+ /**
+  * acpi_register_gsi() - Map a GSI to a linux IRQ number
+  * @dev: device for which IRQ has to be mapped
+@@ -56,20 +76,9 @@ EXPORT_SYMBOL_GPL(acpi_gsi_to_irq);
+ int acpi_register_gsi(struct device *dev, u32 gsi, int trigger,
+ 		      int polarity)
+ {
+-	struct irq_fwspec fwspec;
+ 	unsigned int irq;
+ 
+-	fwspec.fwnode = acpi_get_gsi_domain_id(gsi);
+-	if (WARN_ON(!fwspec.fwnode)) {
+-		pr_warn("GSI: No registered irqchip, giving up\n");
+-		return -EINVAL;
+-	}
+-
+-	fwspec.param[0] = gsi;
+-	fwspec.param[1] = acpi_dev_get_irq_type(trigger, polarity);
+-	fwspec.param_count = 2;
+-
+-	irq = irq_create_fwspec_mapping(&fwspec);
++	irq = acpi_register_irq(dev, gsi, trigger, polarity, acpi_get_gsi_domain_id(gsi));
+ 	if (!irq)
+ 		return -EINVAL;
+ 
+@@ -108,7 +117,7 @@ EXPORT_SYMBOL_GPL(acpi_unregister_gsi);
+  * Return:
+  * The referenced device fwhandle or NULL on failure
+  */
+-static struct fwnode_handle *
++struct fwnode_handle *
+ acpi_get_irq_source_fwhandle(const struct acpi_resource_source *source,
+ 			     u32 gsi)
+ {
+diff --git a/drivers/acpi/pci_irq.c b/drivers/acpi/pci_irq.c
+index ff30ceca2203..c6fc738f7984 100644
+--- a/drivers/acpi/pci_irq.c
++++ b/drivers/acpi/pci_irq.c
+@@ -23,6 +23,8 @@
+ #include <linux/slab.h>
+ #include <linux/interrupt.h>
+ 
++#include "internal.h"
++
+ struct acpi_prt_entry {
+ 	struct acpi_pci_id	id;
+ 	u8			pin;
+@@ -400,6 +402,7 @@ int acpi_pci_irq_enable(struct pci_dev *dev)
+ 	char *link = NULL;
+ 	char link_desc[16];
+ 	int rc;
++	struct fwnode_handle *rs_fwnode;
+ 
+ 	pin = dev->pin;
+ 	if (!pin) {
+@@ -426,7 +429,8 @@ int acpi_pci_irq_enable(struct pci_dev *dev)
+ 			gsi = acpi_pci_link_allocate_irq(entry->link,
+ 							 entry->index,
+ 							 &triggering, &polarity,
+-							 &link);
++							 &link,
++							 &rs_fwnode);
+ 		else
+ 			gsi = entry->index;
+ 	} else
+@@ -450,7 +454,7 @@ int acpi_pci_irq_enable(struct pci_dev *dev)
+ 		return 0;
+ 	}
+ 
+-	rc = acpi_register_gsi(&dev->dev, gsi, triggering, polarity);
++	rc = acpi_register_irq(&dev->dev, gsi, triggering, polarity, rs_fwnode);
+ 	if (rc < 0) {
+ 		dev_warn(&dev->dev, "PCI INT %c: failed to register GSI\n",
+ 			 pin_name(pin));
+diff --git a/drivers/acpi/pci_link.c b/drivers/acpi/pci_link.c
+index aa1038b8aec4..3af04e839d07 100644
+--- a/drivers/acpi/pci_link.c
++++ b/drivers/acpi/pci_link.c
+@@ -59,6 +59,7 @@ struct acpi_pci_link_irq {
+ 	u8 resource_type;
+ 	u8 possible_count;
+ 	u32 possible[ACPI_PCI_LINK_MAX_POSSIBLE];
++	struct acpi_resource_source resource_source;
+ 	u8 initialized:1;
+ 	u8 reserved:7;
+ };
+@@ -121,6 +122,8 @@ static acpi_status acpi_pci_link_check_possible(struct acpi_resource *resource,
+ 		{
+ 			struct acpi_resource_extended_irq *p =
+ 			    &resource->data.extended_irq;
++			struct acpi_resource_source *rs =
++			    &link->irq.resource_source;
+ 			if (!p->interrupt_count) {
+ 				acpi_handle_debug(handle,
+ 						  "Blank _PRS EXT IRQ resource\n");
+@@ -141,6 +144,12 @@ static acpi_status acpi_pci_link_check_possible(struct acpi_resource *resource,
+ 			link->irq.triggering = p->triggering;
+ 			link->irq.polarity = p->polarity;
+ 			link->irq.resource_type = ACPI_RESOURCE_TYPE_EXTENDED_IRQ;
++			if (p->resource_source.string_length) {
++				rs->index = p->resource_source.index;
++				rs->string_length = p->resource_source.string_length;
++				rs->string_ptr = kstrdup(p->resource_source.string_ptr,
++							 GFP_KERNEL);
++			}
+ 			break;
+ 		}
+ 	default:
+@@ -327,7 +336,8 @@ static int acpi_pci_link_set(struct acpi_pci_link *link, int irq)
+ 			resource->res.data.extended_irq.shareable = ACPI_SHARED;
+ 		resource->res.data.extended_irq.interrupt_count = 1;
+ 		resource->res.data.extended_irq.interrupts[0] = irq;
+-		/* ignore resource_source, it's optional */
++		resource->res.data.extended_irq.resource_source =
++			link->irq.resource_source;
+ 		break;
+ 	default:
+ 		acpi_handle_err(handle, "Invalid resource type %d\n",
+@@ -604,7 +614,7 @@ static int acpi_pci_link_allocate(struct acpi_pci_link *link)
+  * failure: return -1
+  */
+ int acpi_pci_link_allocate_irq(acpi_handle handle, int index, int *triggering,
+-			       int *polarity, char **name)
++			       int *polarity, char **name, struct fwnode_handle **rs_fwnode)
+ {
+ 	struct acpi_device *device = acpi_fetch_acpi_dev(handle);
+ 	struct acpi_pci_link *link;
+@@ -646,6 +656,13 @@ int acpi_pci_link_allocate_irq(acpi_handle handle, int index, int *triggering,
+ 		*polarity = link->irq.polarity;
+ 	if (name)
+ 		*name = acpi_device_bid(link->device);
++	if (rs_fwnode)
++		/* TODO: acpi_get_irq_source_fwhandle() requires a GSI as the second argument,
++		 * which is not applicable for a hierarchical INTx. However, multiple GSI domains
++		 * are only for LoongArch. Therefore, passing any value makes no differences for us.
++		 * Need some reconstruction for this function to meet the real semantic.
++		 */
++		*rs_fwnode = acpi_get_irq_source_fwhandle(&link->irq.resource_source, 0);
+ 	acpi_handle_debug(handle, "Link is referenced\n");
+ 	return link->irq.active;
+ }
+diff --git a/include/acpi/acpi_drivers.h b/include/acpi/acpi_drivers.h
+index b14d165632e7..0feb611713d2 100644
+--- a/include/acpi/acpi_drivers.h
++++ b/include/acpi/acpi_drivers.h
+@@ -51,7 +51,7 @@
+ 
+ int acpi_irq_penalty_init(void);
+ int acpi_pci_link_allocate_irq(acpi_handle handle, int index, int *triggering,
+-			       int *polarity, char **name);
++			       int *polarity, char **name, struct fwnode_handle **rs_fwnode);
+ int acpi_pci_link_free_irq(acpi_handle handle);
+ 
+ /* ACPI PCI Device Binding */
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 1b76d2f83eac..cb1a465f1c88 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -358,6 +358,18 @@ struct irq_domain *acpi_irq_create_hierarchy(unsigned int flags,
+ 					     const struct irq_domain_ops *ops,
+ 					     void *host_data);
+ 
++#ifdef CONFIG_ACPI_GENERIC_GSI
++struct fwnode_handle *acpi_get_irq_source_fwhandle(const struct acpi_resource_source *source,
++						   u32 gsi);
++#else
++static inline
++struct fwnode_handle *acpi_get_irq_source_fwhandle(const struct acpi_resource_source *source,
++						   u32 gsi)
++{
++	return NULL;
++}
++#endif
++
+ #ifdef CONFIG_X86_IO_APIC
+ extern int acpi_get_override_irq(u32 gsi, int *trigger, int *polarity);
+ #else
+-- 
+2.47.0
+

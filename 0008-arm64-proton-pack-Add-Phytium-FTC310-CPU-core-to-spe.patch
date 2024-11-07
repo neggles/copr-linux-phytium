@@ -1,0 +1,39 @@
+From 17994adaf97db3846136329d1181b5f66dfe2e22 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:00 +0800
+Subject: [PATCH 008/150] arm64: proton-pack: Add Phytium FTC310 CPU core to
+ spectre-v2/v4 safelist
+
+FTC310 (LITTLE) CPUs are spectre-v2 and spectre-v4 safe, hence add them
+to the safe list.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I21b27be8d02d56f03792a0c7656b7d29437e3776
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ arch/arm64/kernel/proton-pack.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/kernel/proton-pack.c b/arch/arm64/kernel/proton-pack.c
+index 57503dc4b22f..19b1fa4acdde 100644
+--- a/arch/arm64/kernel/proton-pack.c
++++ b/arch/arm64/kernel/proton-pack.c
+@@ -160,6 +160,7 @@ static enum mitigation_state spectre_v2_get_cpu_hw_mitigation_state(void)
+ 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A55),
+ 		MIDR_ALL_VERSIONS(MIDR_BRAHMA_B53),
+ 		MIDR_ALL_VERSIONS(MIDR_HISI_TSV110),
++		MIDR_ALL_VERSIONS(MIDR_PHYTIUM_FTC310),
+ 		MIDR_ALL_VERSIONS(MIDR_QCOM_KRYO_2XX_SILVER),
+ 		MIDR_ALL_VERSIONS(MIDR_QCOM_KRYO_3XX_SILVER),
+ 		MIDR_ALL_VERSIONS(MIDR_QCOM_KRYO_4XX_SILVER),
+@@ -470,6 +471,7 @@ static enum mitigation_state spectre_v4_get_cpu_hw_mitigation_state(void)
+ 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A53),
+ 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A55),
+ 		MIDR_ALL_VERSIONS(MIDR_BRAHMA_B53),
++		MIDR_ALL_VERSIONS(MIDR_PHYTIUM_FTC310),
+ 		MIDR_ALL_VERSIONS(MIDR_QCOM_KRYO_3XX_SILVER),
+ 		MIDR_ALL_VERSIONS(MIDR_QCOM_KRYO_4XX_SILVER),
+ 		{ /* sentinel */ },
+-- 
+2.47.0
+

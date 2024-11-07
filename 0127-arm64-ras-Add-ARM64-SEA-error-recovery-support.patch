@@ -1,0 +1,290 @@
+From 7c707d1fb08becc926e1526e7e2cd91e986f2eca Mon Sep 17 00:00:00 2001
+From: Xie XiuQi <xiexiuqi@huawei.com>
+Date: Mon, 17 Jun 2024 19:33:11 +0800
+Subject: [PATCH 127/150] arm64/ras: Add ARM64 SEA error recovery support
+
+For matching the product team's requirement, we could apply
+our own solution now. When the mainline could resolve those
+problems, we can backport it then.
+
+Signed-off-by: Xie XiuQi <xiexiuqi@huawei.com>
+Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Tested-by: Peng Min <pengmin1540@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Li Mingzhe <limingzhe1839@phytium.conm.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I82811bd91128e63e5482d9c2c2a7392461736c04
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ MAINTAINERS                          |   2 +
+ arch/arm64/Kconfig                   |  11 +++
+ arch/arm64/include/asm/ras.h         |  13 +++
+ arch/arm64/include/asm/thread_info.h |   4 +-
+ arch/arm64/kernel/Makefile           |   1 +
+ arch/arm64/kernel/ras.c              | 132 +++++++++++++++++++++++++++
+ arch/arm64/kernel/signal.c           |   6 ++
+ 7 files changed, 168 insertions(+), 1 deletion(-)
+ create mode 100644 arch/arm64/include/asm/ras.h
+ create mode 100644 arch/arm64/kernel/ras.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4156de9e35e0..d4bc5850506e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2559,6 +2559,8 @@ F:	Documentation/devicetree/bindings/spi/phytium,spi.yaml
+ F:	Documentation/devicetree/bindings/usb/phytium,usb2.yaml
+ F:	Documentation/devicetree/bindings/w1/phytium,w1.yaml
+ F:	arch/arm64/boot/dts/phytium/*
++F:	arch/arm64/include/asm/ras.h
++F:	arch/arm64/kernel/ras.c
+ F:	drivers/char/hw_random/phytium-rng.c
+ F:	drivers/char/ipmi/bt_bmc_phytium.c
+ F:	drivers/char/ipmi/kcs_bmc_phytium.c
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index eab866d69033..d5797bd85d1f 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1473,6 +1473,17 @@ config HOTPLUG_CPU
+ 	  Say Y here to experiment with turning CPUs off and on.  CPUs
+ 	  can be controlled through /sys/devices/system/cpu.
+ 
++config ARM64_ERR_RECOV
++	bool "Support arm64 RAS error recovery"
++	depends on ACPI_APEI_SEA && MEMORY_FAILURE
++	help
++	  With ARM v8.2 RAS Extension, SEA are usually triggered when memory errors
++	  are consumed. In some cases, if the error address is in a clean page or a
++	  read-only page, there is a chance to recover. Such as error occurs in a
++	  instruction page, we can reread this page from disk instead of killing process.
++
++	  Say Y if unsure.
++
+ # Common NUMA Features
+ config NUMA
+ 	bool "NUMA Memory Allocation and Scheduler Support"
+diff --git a/arch/arm64/include/asm/ras.h b/arch/arm64/include/asm/ras.h
+new file mode 100644
+index 000000000000..5453c1f9b490
+--- /dev/null
++++ b/arch/arm64/include/asm/ras.h
+@@ -0,0 +1,13 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * ARM64 SEA error recoery support
++ *
++ * Copyright (c) 2019-2023, Phytium Technology Co., Ltd.
++ */
++
++#ifndef _ASM_RAS_H
++#define _ASM_RAS_H
++
++extern void sea_notify_process(void);
++
++#endif /*_ASM_RAS_H*/
+diff --git a/arch/arm64/include/asm/thread_info.h b/arch/arm64/include/asm/thread_info.h
+index 553d1bc559c6..c5e3459f1d2a 100644
+--- a/arch/arm64/include/asm/thread_info.h
++++ b/arch/arm64/include/asm/thread_info.h
+@@ -64,6 +64,7 @@ void arch_setup_new_exec(void);
+ #define TIF_UPROBE		4	/* uprobe breakpoint or singlestep */
+ #define TIF_MTE_ASYNC_FAULT	5	/* MTE Asynchronous Tag Check Fault */
+ #define TIF_NOTIFY_SIGNAL	6	/* signal notifications exist */
++#define TIF_SEA_NOTIFY		7	/* notify to do an error recovery */
+ #define TIF_SYSCALL_TRACE	8	/* syscall trace active */
+ #define TIF_SYSCALL_AUDIT	9	/* syscall auditing */
+ #define TIF_SYSCALL_TRACEPOINT	10	/* syscall tracepoint for ftrace */
+@@ -85,6 +86,7 @@ void arch_setup_new_exec(void);
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+ #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
+ #define _TIF_FOREIGN_FPSTATE	(1 << TIF_FOREIGN_FPSTATE)
++#define _TIF_SEA_NOTIFY		(1 << TIF_SEA_NOTIFY)
+ #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
+ #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
+ #define _TIF_SYSCALL_TRACEPOINT	(1 << TIF_SYSCALL_TRACEPOINT)
+@@ -100,7 +102,7 @@ void arch_setup_new_exec(void);
+ #define _TIF_WORK_MASK		(_TIF_NEED_RESCHED | _TIF_SIGPENDING | \
+ 				 _TIF_NOTIFY_RESUME | _TIF_FOREIGN_FPSTATE | \
+ 				 _TIF_UPROBE | _TIF_MTE_ASYNC_FAULT | \
+-				 _TIF_NOTIFY_SIGNAL)
++				 _TIF_NOTIFY_SIGNAL | _TIF_SEA_NOTIFY)
+ 
+ #define _TIF_SYSCALL_WORK	(_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
+ 				 _TIF_SYSCALL_TRACEPOINT | _TIF_SECCOMP | \
+diff --git a/arch/arm64/kernel/Makefile b/arch/arm64/kernel/Makefile
+index d95b3d6b471a..eca1f9012aba 100644
+--- a/arch/arm64/kernel/Makefile
++++ b/arch/arm64/kernel/Makefile
+@@ -54,6 +54,7 @@ obj-$(CONFIG_EFI)			+= efi.o efi-rt-wrapper.o
+ obj-$(CONFIG_PCI)			+= pci.o
+ obj-$(CONFIG_ARMV8_DEPRECATED)		+= armv8_deprecated.o
+ obj-$(CONFIG_ACPI)			+= acpi.o
++obj-$(CONFIG_ARM64_ERR_RECOV)		+= ras.o
+ obj-$(CONFIG_ACPI_NUMA)			+= acpi_numa.o
+ obj-$(CONFIG_ARM64_ACPI_PARKING_PROTOCOL)	+= acpi_parking_protocol.o
+ obj-$(CONFIG_PARAVIRT)			+= paravirt.o
+diff --git a/arch/arm64/kernel/ras.c b/arch/arm64/kernel/ras.c
+new file mode 100644
+index 000000000000..a52215bdea0e
+--- /dev/null
++++ b/arch/arm64/kernel/ras.c
+@@ -0,0 +1,132 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ARM64 SEA error recoery support
++ *
++ * Copyright (c) 2019-2023, Phytium Technology Co., Ltd.
++ */
++
++#include <linux/kernel.h>
++#include <linux/cper.h>
++#include <linux/mm.h>
++#include <linux/preempt.h>
++#include <linux/acpi.h>
++#include <linux/sched/signal.h>
++#include <linux/ras.h>
++
++#include <acpi/actbl1.h>
++#include <acpi/ghes.h>
++#include <acpi/apei.h>
++
++#include <asm/thread_info.h>
++#include <asm/atomic.h>
++#include <asm/ras.h>
++
++/*
++ * Need to save faulting physical address associated with a process
++ * in the sea ghes handler some place where we can grab it back
++ * later in sea_notify_process()
++ */
++#define SEA_INFO_MAX    16
++
++struct sea_info {
++	atomic_t                inuse;
++	struct task_struct      *t;
++	__u64                   paddr;
++} sea_info[SEA_INFO_MAX];
++
++static bool sea_save_info(__u64 addr)
++{
++	struct sea_info *si;
++
++	for (si = sea_info; si < &sea_info[SEA_INFO_MAX]; si++) {
++		if (atomic_cmpxchg(&si->inuse, 0, 1) == 0) {
++			si->t = current;
++			si->paddr = addr;
++			return true;
++		}
++	}
++
++	pr_err("Too many concurrent recoverable errors\n");
++	return false;
++}
++
++static struct sea_info *sea_find_info(void)
++{
++	struct sea_info *si;
++
++	for (si = sea_info; si < &sea_info[SEA_INFO_MAX]; si++)
++		if (atomic_read(&si->inuse) && si->t == current)
++			return si;
++	return NULL;
++}
++
++static void sea_clear_info(struct sea_info *si)
++{
++	atomic_set(&si->inuse, 0);
++}
++
++/*
++ * Called in process context that interrupted by SEA and marked with
++ * TIF_SEA_NOTIFY, just before returning to erroneous userland.
++ * This code is allowed to sleep.
++ * Attempt possible recovery such as calling the high level VM handler to
++ * process any corrupted pages, and kill/signal current process if required.
++ * Action required errors are handled here.
++ */
++void sea_notify_process(void)
++{
++	unsigned long pfn;
++	int fail = 0, flags = MF_ACTION_REQUIRED;
++	struct sea_info *si = sea_find_info();
++
++	if (!si)
++		panic("Lost physical address for consumed uncorrectable error");
++
++	clear_thread_flag(TIF_SEA_NOTIFY);
++	do {
++		pfn = si->paddr >> PAGE_SHIFT;
++
++		pr_err("Uncorrected hardware memory error in user-access at %llx\n",
++				si->paddr);
++		/*
++		 * We must call memory_failure() here even if the current process is
++		 * doomed. We still need to mark the page as poisoned and alert any
++		 * other users of the page.
++		 */
++		if (memory_failure(pfn, flags) < 0)
++			fail++;
++
++		sea_clear_info(si);
++
++		si = sea_find_info();
++	} while (si);
++
++	if (fail) {
++		pr_err("Memory error not recovered\n");
++
++		force_sig(SIGBUS);
++	}
++}
++
++void ghes_arm_process_error(struct ghes *ghes, struct cper_sec_proc_arm *err)
++{
++	int i;
++	bool info_saved = false;
++	struct cper_arm_err_info *err_info;
++
++	log_arm_hw_error(err);
++
++	if ((ghes->generic->notify.type != ACPI_HEST_NOTIFY_SEA) ||
++	    (ghes->estatus->error_severity != CPER_SEV_RECOVERABLE))
++		return;
++
++	err_info = (struct cper_arm_err_info *)(err + 1);
++	for (i = 0; i < err->err_info_num; i++, err_info++) {
++		if ((err_info->validation_bits & CPER_ARM_INFO_VALID_PHYSICAL_ADDR) &&
++		    (err_info->type == CPER_ARM_CACHE_ERROR))
++			info_saved |= sea_save_info(err_info->physical_fault_addr);
++	}
++
++	if (info_saved)
++		set_thread_flag(TIF_SEA_NOTIFY);
++}
+diff --git a/arch/arm64/kernel/signal.c b/arch/arm64/kernel/signal.c
+index 425b1bc17a3f..0e1dbc6d2c02 100644
+--- a/arch/arm64/kernel/signal.c
++++ b/arch/arm64/kernel/signal.c
+@@ -33,6 +33,7 @@
+ #include <asm/signal32.h>
+ #include <asm/traps.h>
+ #include <asm/vdso.h>
++#include <asm/ras.h>
+ 
+ /*
+  * Do a signal return; undo the signal stack. These are aligned to 128-bit.
+@@ -1280,6 +1281,11 @@ static void do_signal(struct pt_regs *regs)
+ 
+ void do_notify_resume(struct pt_regs *regs, unsigned long thread_flags)
+ {
++#ifdef CONFIG_ARM64_ERR_RECOV
++	/* notify userspace of pending SEAs */
++	if (unlikely(thread_flags & _TIF_SEA_NOTIFY))
++		sea_notify_process();
++#endif /* CONFIG_ARM64_ERR_RECOV */
+ 	do {
+ 		if (thread_flags & _TIF_NEED_RESCHED) {
+ 			/* Unmask Debug and SError for the next task */
+-- 
+2.47.0
+

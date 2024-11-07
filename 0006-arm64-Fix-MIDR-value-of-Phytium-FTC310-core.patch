@@ -1,0 +1,33 @@
+From fd74279b5b2abf7a04f1a5d061b9dc8d47e2e119 Mon Sep 17 00:00:00 2001
+From: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:00 +0800
+Subject: [PATCH 006/150] arm64: Fix MIDR value of Phytium FTC310 core
+
+This patch fixes MIDR definition to 0x303 for Phytium FTC310
+core.
+
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Li Mingzhe <limingzhe1839@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I6021c27c13c5e2cb21815b045159536d03ce1782
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ arch/arm64/include/asm/cputype.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/include/asm/cputype.h b/arch/arm64/include/asm/cputype.h
+index 42e0f8bb3d31..9482ab93e811 100644
+--- a/arch/arm64/include/asm/cputype.h
++++ b/arch/arm64/include/asm/cputype.h
+@@ -149,7 +149,7 @@
+ 
+ #define MICROSOFT_CPU_PART_AZURE_COBALT_100	0xD49 /* Based on r0p0 of ARM Neoverse N2 */
+ 
+-#define PHYTIUM_CPU_PART_FTC310		0x660
++#define PHYTIUM_CPU_PART_FTC310		0x303
+ #define PHYTIUM_CPU_PART_FTC660		0x660
+ #define PHYTIUM_CPU_PART_FTC661		0x661
+ #define PHYTIUM_CPU_PART_FTC662		0x662
+-- 
+2.47.0
+

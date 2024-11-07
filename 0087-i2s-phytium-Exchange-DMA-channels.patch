@@ -1,0 +1,65 @@
+From d7653c0f5fe8f6b811f4e18098c0156af3a3b616 Mon Sep 17 00:00:00 2001
+From: Zhou Zheng <zhouzheng2069@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:07 +0800
+Subject: [PATCH 087/150] i2s: phytium: Exchange DMA channels
+
+According to design requirements, The DMA channel 0 must be used for
+recording, so exchange the DMA channels of recording and playback.
+
+Signed-off-by: Zhou Zheng <zhouzheng2069@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I1b04c4fa5e7afaa7c578c235c0872306a650b66b
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ sound/soc/phytium/phytium_i2s.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/sound/soc/phytium/phytium_i2s.c b/sound/soc/phytium/phytium_i2s.c
+index efaa70704753..db8064cecfcc 100644
+--- a/sound/soc/phytium/phytium_i2s.c
++++ b/sound/soc/phytium/phytium_i2s.c
+@@ -723,21 +723,10 @@ int snd_i2s_stream_setup(struct i2s_stream *azx_dev, int pcie, u32 paddr)
+ 	else
+ 		runtime = NULL;
+ 
+-	i2s_write_reg(azx_dev->sd_addr, DMA_CHAL_CONFG0, 0x8180);
++	i2s_write_reg(azx_dev->sd_addr, DMA_CHAL_CONFG0, 0x8081);
+ 	i2s_write_reg(azx_dev->sd_addr, DMA_MASK_INT, 0x80000003);
+ 
+ 	if (azx_dev->direction == SNDRV_PCM_STREAM_PLAYBACK) {
+-		i2s_write_reg(azx_dev->sd_addr, DMA_BDLPL(0), (u32)azx_dev->bdl.addr);
+-		i2s_write_reg(azx_dev->sd_addr, DMA_BDLPU(0), upper_32_bits(azx_dev->bdl.addr));
+-		if (pcie)
+-			i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DEV_ADDR(0), 0x1c0);
+-		else
+-			i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DEV_ADDR(0), paddr + 0x1c0);
+-		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_CBL(0), azx_dev->bufsize);
+-		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_LVI(0), azx_dev->frags - 1);
+-		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DSIZE(0), azx_dev->format_val << 2);
+-		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DLENTH(0), 0x0);
+-	} else {
+ 		i2s_write_reg(azx_dev->sd_addr, DMA_BDLPL(1), (u32)azx_dev->bdl.addr);
+ 		i2s_write_reg(azx_dev->sd_addr, DMA_BDLPU(1), upper_32_bits(azx_dev->bdl.addr));
+ 		if (pcie)
+@@ -748,6 +737,17 @@ int snd_i2s_stream_setup(struct i2s_stream *azx_dev, int pcie, u32 paddr)
+ 		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_LVI(1), azx_dev->frags - 1);
+ 		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DSIZE(1), azx_dev->format_val);
+ 		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DLENTH(1), 0x0);
++	} else {
++		i2s_write_reg(azx_dev->sd_addr, DMA_BDLPL(0), (u32)azx_dev->bdl.addr);
++		i2s_write_reg(azx_dev->sd_addr, DMA_BDLPU(0), upper_32_bits(azx_dev->bdl.addr));
++		if (pcie)
++			i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DEV_ADDR(0), 0x1c0);
++		else
++			i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DEV_ADDR(0), paddr + 0x1c0);
++		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_CBL(0), azx_dev->bufsize);
++		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_LVI(0), azx_dev->frags - 1);
++		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DSIZE(0), azx_dev->format_val << 2);
++		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_DLENTH(0), 0x0);
+ 	}
+ 
+ 	if (runtime && runtime->period_size > 64)
+-- 
+2.47.0
+

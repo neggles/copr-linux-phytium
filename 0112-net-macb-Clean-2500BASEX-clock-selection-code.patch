@@ -1,0 +1,76 @@
+From adb95da716d3a5f4595f3b08e39094dd2a500b09 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:09 +0800
+Subject: [PATCH 112/150] net: macb: Clean 2500BASEX clock selection code
+
+Clean up commit d059e321fffc ("net: macb: Add USXGMII/5GBASER/2500BASEX
+clock selection support") to improve maintainability.
+
+This patch should be squashed into the previous commit in public
+branch.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I54b52273bc176ec112de754b19310584f4e00fea
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/net/ethernet/cadence/macb_main.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+index 2fb55d6ab196..9a2654e8d876 100644
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -832,11 +832,13 @@ static void macb_mac_config(struct phylink_config *config, unsigned int mode,
+ 			ctrl |= MACB_BIT(RM9200_RMII);
+ 	} else if (macb_is_gem(bp)) {
+ 		ctrl &= ~(GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL));
+-		ncr &= ~GEM_BIT(ENABLE_HS_MAC);
++		ncr &= ~(GEM_BIT(ENABLE_HS_MAC) | MACB_BIT(2PT5G));
+ 
+-		if (state->interface == PHY_INTERFACE_MODE_SGMII ||
+-		    state->interface == PHY_INTERFACE_MODE_2500BASEX) {
++		if (state->interface == PHY_INTERFACE_MODE_SGMII) {
+ 			ctrl |= GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL);
++		} else if (state->interface == PHY_INTERFACE_MODE_2500BASEX) {
++			ctrl |= GEM_BIT(SGMIIEN) | GEM_BIT(PCSSEL);
++			ncr |= MACB_BIT(2PT5G);
+ 		} else if (state->interface == PHY_INTERFACE_MODE_10GBASER ||
+ 			   state->interface == PHY_INTERFACE_MODE_USXGMII ||
+ 			   state->interface == PHY_INTERFACE_MODE_5GBASER) {
+@@ -1081,7 +1083,8 @@ static int macb_mii_probe(struct net_device *dev)
+ 	bp->phylink_config.type = PHYLINK_NETDEV;
+ 	bp->phylink_config.mac_managed_pm = true;
+ 
+-	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII) {
++	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII ||
++	    bp->phy_interface == PHY_INTERFACE_MODE_2500BASEX) {
+ 		bp->phylink_config.poll_fixed_state = true;
+ 		bp->phylink_config.get_fixed_state = macb_get_pcs_fixed_state;
+ 	} else if (bp->phy_interface == PHY_INTERFACE_MODE_2500BASEX ||
+@@ -1121,12 +1124,6 @@ static int macb_mii_probe(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII ||
+-	    bp->phy_interface == PHY_INTERFACE_MODE_2500BASEX) {
+-		bp->phylink_config.poll_fixed_state = true;
+-		bp->phylink_config.get_fixed_state = macb_get_pcs_fixed_state;
+-	}
+-
+ 	bp->phylink = phylink_create(&bp->phylink_config, bp->pdev->dev.fwnode,
+ 				     bp->phy_interface, &macb_phylink_ops);
+ 	if (IS_ERR(bp->phylink)) {
+@@ -3030,7 +3027,9 @@ static void macb_init_hw(struct macb *bp)
+ 	if (bp->caps & MACB_CAPS_JUMBO)
+ 		bp->rx_frm_len_mask = MACB_RX_JFRMLEN_MASK;
+ 
+-	gem_writel(bp, AXI_PIPE, 0x1010);
++	/* MACB_CAPS_SEL_CLK_HW flag is a unique flag for Phytium GEM */
++	if (bp->caps & MACB_CAPS_SEL_CLK_HW)
++		gem_writel(bp, AXI_PIPE, 0x1010);
+ 
+ 	macb_configure_dma(bp);
+ 
+-- 
+2.47.0
+

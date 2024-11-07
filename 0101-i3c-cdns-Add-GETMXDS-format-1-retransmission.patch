@@ -1,0 +1,43 @@
+From 2502b72c52dbd40bf2fa7ea94089c8ff25706936 Mon Sep 17 00:00:00 2001
+From: Song Wenting <songwenting@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:08 +0800
+Subject: [PATCH 101/150] i3c: cdns: Add GETMXDS format 1 retransmission
+
+This patch adds GETMXDS format 1 retransmission to fix
+GETMXDS format 2 command failure.
+
+Signed-off-by: Song Wenting <songwenting@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Ic12f0cd7083fc47323c6b646ab19fb1f0dee978b
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/i3c/master/i3c-master-cdns.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/i3c/master/i3c-master-cdns.c b/drivers/i3c/master/i3c-master-cdns.c
+index 78de82cc696a..3c147d662715 100644
+--- a/drivers/i3c/master/i3c-master-cdns.c
++++ b/drivers/i3c/master/i3c-master-cdns.c
+@@ -725,6 +725,19 @@ static int cdns_i3c_master_send_ccc_cmd(struct i3c_master_controller *m,
+ 	if (!wait_for_completion_timeout(&xfer->comp, msecs_to_jiffies(1000)))
+ 		cdns_i3c_master_unqueue_xfer(master, xfer);
+ 
++	/*GETMXDS format 1 need retransmission*/
++	if ((xfer->ret) && (cmd->id == I3C_CCC_GETMXDS)) {
++		if (cmd->dests[0].payload.len == 5) {
++			cmd->dests[0].payload.len = 2;
++			ccmd->rx_len = cmd->dests[0].payload.len;
++			ccmd->cmd0 &= 0xfff000fff;
++			ccmd->cmd0 |= CMD0_FIFO_PL_LEN(cmd->dests[0].payload.len);
++			cdns_i3c_master_queue_xfer(master, xfer);
++			if (!wait_for_completion_timeout(&xfer->comp, msecs_to_jiffies(1000)))
++				cdns_i3c_master_unqueue_xfer(master, xfer);
++		}
++	}
++
+ 	ret = xfer->ret;
+ 	cmd->err = cdns_i3c_cmd_get_err(&xfer->cmds[0]);
+ 	cdns_i3c_master_free_xfer(xfer);
+-- 
+2.47.0
+

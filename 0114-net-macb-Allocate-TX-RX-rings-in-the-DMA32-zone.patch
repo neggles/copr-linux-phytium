@@ -1,0 +1,51 @@
+From fca626fd3fbd601197d8cb67e180dfe1073cbc09 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:09 +0800
+Subject: [PATCH 114/150] net: macb: Allocate TX/RX rings in the DMA32 zone
+
+The controller implementation shares a single register for the
+high address bits across all TX/RX rings. If the buffers are
+allocated in different 4GB ranges, DMA on the queues would fail.
+
+This patch fixes the issue by allocating the ring buffers in DMA32
+memory zone which makes the allocation before 4G memory.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I521961829e14d90165f166667ad8b6f15dc12150
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/net/ethernet/cadence/macb_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+index 6ea695de8226..f55de33a9fab 100644
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -2790,7 +2790,7 @@ static int macb_alloc_consistent(struct macb *bp)
+ 		size = TX_RING_BYTES(bp) + bp->tx_bd_rd_prefetch;
+ 		queue->tx_ring = dma_alloc_coherent(&bp->pdev->dev, size,
+ 						    &queue->tx_ring_dma,
+-						    GFP_KERNEL);
++						    GFP_KERNEL | GFP_DMA32);
+ 		if (!queue->tx_ring)
+ 			goto out_err;
+ 		netdev_dbg(bp->dev,
+@@ -2799,13 +2799,13 @@ static int macb_alloc_consistent(struct macb *bp)
+ 			   queue->tx_ring);
+ 
+ 		size = bp->tx_ring_size * sizeof(struct macb_tx_skb);
+-		queue->tx_skb = kmalloc(size, GFP_KERNEL);
++		queue->tx_skb = kzalloc(size, GFP_KERNEL);
+ 		if (!queue->tx_skb)
+ 			goto out_err;
+ 
+ 		size = RX_RING_BYTES(bp) + bp->rx_bd_rd_prefetch;
+ 		queue->rx_ring = dma_alloc_coherent(&bp->pdev->dev, size,
+-						 &queue->rx_ring_dma, GFP_KERNEL);
++						 &queue->rx_ring_dma, GFP_KERNEL | GFP_DMA32);
+ 		if (!queue->rx_ring)
+ 			goto out_err;
+ 		netdev_dbg(bp->dev,
+-- 
+2.47.0
+

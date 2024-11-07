@@ -1,0 +1,62 @@
+From b79f447ad53b310f8da1c53930df75a240f0d09d Mon Sep 17 00:00:00 2001
+From: Song Wenting <songwenting@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:08 +0800
+Subject: [PATCH 100/150] i3c: cdns: add support for Phytium workaround
+
+When reading the slave registers, two consecutive slave returns bytes
+larger than the set PL len will trigger halt on the host, so
+halt_en is disabled by default for phytium Soc.
+
+Signed-off-by: Song Wenting <songwenting@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Icb06affbbbae35149f31c34d22a9ffb8e5b675c0
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/i3c/master/i3c-master-cdns.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/i3c/master/i3c-master-cdns.c b/drivers/i3c/master/i3c-master-cdns.c
+index d8426847c283..78de82cc696a 100644
+--- a/drivers/i3c/master/i3c-master-cdns.c
++++ b/drivers/i3c/master/i3c-master-cdns.c
+@@ -393,6 +393,7 @@ struct cdns_i3c_xfer {
+ 
+ struct cdns_i3c_data {
+ 	u8 thd_delay_ns;
++	u8 halt_disable;
+ };
+ 
+ struct cdns_i3c_master {
+@@ -1285,7 +1286,10 @@ static int cdns_i3c_master_bus_init(struct i3c_master_controller *m)
+ 	 *
+ 	 * We will issue ENTDAA afterwards from the threaded IRQ handler.
+ 	 */
+-	ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_HALT_EN | CTRL_MCS_EN;
++	if (master->devdata->halt_disable)
++		ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_MCS_EN;
++	else
++		ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_HALT_EN | CTRL_MCS_EN;
+ 
+ 	/*
+ 	 * Configure data hold delay based on device-specific data.
+@@ -1556,10 +1560,17 @@ static void cdns_i3c_master_hj(struct work_struct *work)
+ 
+ static struct cdns_i3c_data cdns_i3c_devdata = {
+ 	.thd_delay_ns = 10,
++	.halt_disable = 0,
++};
++
++static struct cdns_i3c_data phytium_i3c_devdata = {
++	.thd_delay_ns = 10,
++	.halt_disable = 1,
+ };
+ 
+ static const struct of_device_id cdns_i3c_master_of_ids[] = {
+ 	{ .compatible = "cdns,i3c-master", .data = &cdns_i3c_devdata },
++	{ .compatible = "phytium,cdns-i3c-master", .data = &phytium_i3c_devdata},
+ 	{ /* sentinel */ },
+ };
+ 
+-- 
+2.47.0
+

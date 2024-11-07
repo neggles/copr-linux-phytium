@@ -1,0 +1,35 @@
+From 5b0de7267cc80280bd0347e0d40b2f8f01ece909 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:00 +0800
+Subject: [PATCH 001/150] MAINTAINERS: Add entry for Phytium SoC family
+
+Add MAINTAINERS entry for Phytium SoC family with myself as the
+maintainer.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I038a5770b4da324306b2500238e2d59e77b9e8af
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ae4c0cec5073..7f1a1fd31090 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2526,6 +2526,12 @@ S:	Maintained
+ W:	http://www.digriz.org.uk/ts78xx/kernel
+ F:	arch/arm/mach-orion5x/ts78xx-*
+ 
++ARM/PHYTIUM SOC SUPPORT
++M:	Chen Baozi <chenbaozi@phytium.com.cn>
++S:	Maintained
++W:	https://www.phytium.com.cn
++F:	arch/arm64/boot/dts/phytium/*
++
+ ARM/QUALCOMM CHROMEBOOK SUPPORT
+ R:	cros-qcom-dts-watchers@chromium.org
+ F:	arch/arm64/boot/dts/qcom/sc7180*
+-- 
+2.47.0
+

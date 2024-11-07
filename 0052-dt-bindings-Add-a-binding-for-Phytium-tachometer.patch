@@ -1,0 +1,120 @@
+From 05bef1aa4f4df6ce174ce5db9effccef780b35ca Mon Sep 17 00:00:00 2001
+From: Zhang Yiqun <zhangyiqun@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:04 +0800
+Subject: [PATCH 052/150] dt-bindings: Add a binding for Phytium tachometer
+
+Add a DT binding documentation of the tachometer for the
+Phytium SoCs.
+
+Signed-off-by: Zhang Yiqun <zhangyiqun@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I67b0c81675ebf4a9e388fdff02efe3dfd2dd9141
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ .../bindings/hwmon/phytium,tacho.yaml         | 81 +++++++++++++++++++
+ MAINTAINERS                                   |  1 +
+ 2 files changed, 82 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/hwmon/phytium,tacho.yaml
+
+diff --git a/Documentation/devicetree/bindings/hwmon/phytium,tacho.yaml b/Documentation/devicetree/bindings/hwmon/phytium,tacho.yaml
+new file mode 100644
+index 000000000000..d2443e023a6b
+--- /dev/null
++++ b/Documentation/devicetree/bindings/hwmon/phytium,tacho.yaml
+@@ -0,0 +1,81 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/hwmon/phytium,tacho.yaml
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Phytium Fan Tacho and capture counter controller device driver
++
++maintainers:
++  - Chen Baozi <chenbaozi@phytium.com.cn>
++
++description: |
++  The controller can support one input signal. The function of controller is to
++  measure the speed of fan and the edge number of input signal. The function
++  can be selected by devicetree setting. The edging mode and anti-jitter level
++  can also setted in devicetree.
++
++properties:
++  compatible:
++    const: phytium,tacho
++
++  reg:
++    maxItems: 1
++
++  clocks:
++    maxItems: 1
++
++  '#address-cells':
++    const: 1
++
++  '#size-cells':
++    const: 1
++
++  tacho:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      set the controller work as fan tachometer, which is a default option.
++
++  capture:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      set the controller work as capture counter.
++
++  up:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      set the input edging mode as ascending, which is a default option.
++
++  down:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      set the input edging mode as descending.
++
++  double:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      set the input edging mode as doule-edging.
++
++  debounce-level:
++    $ref: /schemas/types.yaml#/definitions/uint32
++    enum: [0, 1, 2, 3]
++
++required:
++  - compatible
++  - reg
++  - clocks
++  - '#address-cells'
++  - '#size-cells'
++
++examples:
++  - |
++    tacho: tacho@28054000 {
++      #address-cells = <1>;
++      #size-cells = <1>;
++      reg = <0x0 0x28054000 0x0 0x1000>;
++      compatible = "phytium,tacho";
++      clocks = <&sysclk>;
++      tacho;
++      up;
++      debounce-level = <2>;
++    };
+diff --git a/MAINTAINERS b/MAINTAINERS
+index f39562f78cac..9217edd07014 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2533,6 +2533,7 @@ W:	https://www.phytium.com.cn
+ F:	Documentation/devicetree/bindings/gpio/phytium,gpio.yaml
+ F:	Documentation/devicetree/bindings/gpio/phytium,sgpio.yaml
+ F:	Documentation/devicetree/bindings/hwlock/phytium,hwspinlock.yaml
++F:	Documentation/devicetree/bindings/hwmon/phytium,tacho.yaml
+ F:	Documentation/devicetree/bindings/i2c/phytium,i2c.yaml
+ F:	Documentation/devicetree/bindings/media/phytium,jpeg.yaml
+ F:	Documentation/devicetree/bindings/iio/adc/phytium,adc.yaml
+-- 
+2.47.0
+

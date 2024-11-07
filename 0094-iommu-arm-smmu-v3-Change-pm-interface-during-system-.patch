@@ -1,0 +1,39 @@
+From 7a100cb853cc1dc2604ac11194e142588fcd9db4 Mon Sep 17 00:00:00 2001
+From: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:08 +0800
+Subject: [PATCH 094/150] iommu/arm-smmu-v3: Change pm interface during system
+ sleep transition
+
+This patch enforces proper order of suspending/restoring devices
+during system sleep transition, so use SET_SYSTEM_SLEEP_PM_OPS
+interface to make it workaround for ensuring that SMMUs are
+suspended after their master devices. For example S4 test with SMMUs.
+
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Li Mingzhe <limingzhe1839@phytium.com.cn>
+Signed-off-by: Wang Xu <wangxu@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Icf29cd269cced58ff9678007f5596f21f7f93f0f
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
+index 8ef0e1a766b1..45fbdd4dd499 100644
+--- a/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
++++ b/drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c
+@@ -4002,8 +4002,8 @@ static void arm_smmu_driver_unregister(struct platform_driver *drv)
+ 
+ #ifdef CONFIG_PM_SLEEP
+ static const struct dev_pm_ops arm_smmu_pm_ops = {
+-	.suspend = arm_smmu_suspend,
+-	.resume = arm_smmu_resume,
++	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(arm_smmu_suspend,
++				      arm_smmu_resume)
+ };
+ #define ARM_SMMU_PM_OPS                (&arm_smmu_pm_ops)
+ #else
+-- 
+2.47.0
+

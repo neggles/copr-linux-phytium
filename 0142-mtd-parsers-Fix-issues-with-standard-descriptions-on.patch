@@ -1,0 +1,34 @@
+From 4a47d8c794ddcaac6eb429564c9a6388da796bd9 Mon Sep 17 00:00:00 2001
+From: Wang Hanmo <wanghanmo2242@phytium.com.cn>
+Date: Tue, 18 Jun 2024 17:12:27 +0800
+Subject: [PATCH 142/150] mtd: parsers: Fix issues with standard descriptions
+ on phytium spi/qspi driver
+
+Some descriptions in the driver do not comply with the ACPI spec,so this
+patch addresses the issues.This patch modifies the problematic string,
+and solves the non-compliance with the ACPI spec.
+
+Signed-off-by: Wang Hanmo <wanghanmo2242@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Change-Id: I0c9461cd1caa7a86a6460e791cb0c30b87128ead
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/mtd/parsers/acpipart_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/mtd/parsers/acpipart_core.c b/drivers/mtd/parsers/acpipart_core.c
+index dde80407a605..06060738a353 100644
+--- a/drivers/mtd/parsers/acpipart_core.c
++++ b/drivers/mtd/parsers/acpipart_core.c
+@@ -118,7 +118,7 @@ MODULE_DEVICE_TABLE(acpi, parse_acpipart_match_table);
+ 
+ static struct mtd_part_parser acpipart_parser = {
+ 	.parse_fn = parse_acpi_fixed_partitions,
+-	.name = "acpi-fixed-partitions",
++	.name = "acpi-partitions",
+ 	.acpi_match_table = ACPI_PTR(parse_acpipart_match_table),
+ };
+ 
+-- 
+2.47.0
+

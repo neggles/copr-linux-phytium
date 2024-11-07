@@ -1,0 +1,108 @@
+From 7d032b3d7871b5541ea58d446e808c5ad3341c08 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:01 +0800
+Subject: [PATCH 017/150] dt-bindings: spi: phytium-qspi: Document device tree
+ binding
+
+Add the device tree binding documentation for Phytium QuadSPI controller.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I9df2e71aa5a1e36fb16ea47cbd3b05a30f654d45
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ .../bindings/spi/phytium,qspi-nor.yaml        | 70 +++++++++++++++++++
+ MAINTAINERS                                   |  1 +
+ 2 files changed, 71 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/spi/phytium,qspi-nor.yaml
+
+diff --git a/Documentation/devicetree/bindings/spi/phytium,qspi-nor.yaml b/Documentation/devicetree/bindings/spi/phytium,qspi-nor.yaml
+new file mode 100644
+index 000000000000..8ff781a14531
+--- /dev/null
++++ b/Documentation/devicetree/bindings/spi/phytium,qspi-nor.yaml
+@@ -0,0 +1,70 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/spi/phytium,qspi-nor.yaml#
++$schema: http://devicetree.org/schemas/meta-schemas/core.yaml#
++
++title: Phytium Quad Serial Peripheral Interface (QSPI) bindings
++
++maintainers:
++  - Chen Baozi <chenbaozi@phytium.com.cn>
++
++allOf:
++  - $ref: "spi-controller.yaml#"
++
++properties:
++  compatible:
++    const: phytium,qspi-nor
++
++  reg:
++    items:
++      - description: registers
++      - description: memory mapping region
++
++  reg-names:
++    items:
++      - const: qspi
++      - const: qspi_mm
++
++  clocks:
++    maxItems: 1
++
++  no-direct-mapping:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      Indicates if we can use direct mapping to access the flash
++
++required:
++  - compatible
++  - reg
++  - reg-names
++  - clocks
++
++unevaluateProperties: false
++
++examples:
++  - |
++    qspi: qspi@28014000 {
++      compatible = "phytium,qspi-nor";
++      reg = <0x0 0x28014000 0x0     0x1000>,
++            <0x0        0x0 0x0 0x02000000>;
++      reg-names = "qspi", "qspi_mm";
++      clocks = <&sysclk_600mhz>;
++
++      #address-cells = <1>;
++      #size-cells = <0>;
++
++      flash@0 {
++        compatible = "jedec,spi-nor";
++        reg = <0>;
++        spi-rx-bus-width = <4>;
++        spi-max-frequency = <600000000>;
++      };
++
++      flash@1 {
++        compatible = "jedec,spi-nor";
++        reg = <1>;
++        spi-rx-bus-width = <4>;
++        spi-max-frequency = <600000000>;
++      };
++    };
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 0a467bc8986b..3ebac3ff9ed6 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2532,6 +2532,7 @@ S:	Maintained
+ W:	https://www.phytium.com.cn
+ F:	Documentation/devicetree/bindings/gpio/phytium,gpio.yaml
+ F:	Documentation/devicetree/bindings/mmc/phytium,sdci.yaml
++F:	Documentation/devicetree/bindings/spi/phytium,qspi-nor.yaml
+ F:	Documentation/devicetree/bindings/spi/phytium,spi.yaml
+ F:	arch/arm64/boot/dts/phytium/*
+ F:	drivers/gpio/gpio-phytium*
+-- 
+2.47.0
+

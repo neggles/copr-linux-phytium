@@ -1,0 +1,35 @@
+From bbd8dc91d8623b87543b2ef9f49fd9dc33ff6446 Mon Sep 17 00:00:00 2001
+From: Mao Hongbo <maohongbo@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:10 +0800
+Subject: [PATCH 121/150] PCI: phytium: Fix find_first_zero_bit() limit
+
+Bugfix find_first_zero_bit function call problem, because the bitmap
+of ob_region_map is of type long and BITS_PER_LONG is sufficient.
+
+Signed-off-by: Mao Hongbo <maohongbo@phytium.com.cn>
+Signed-off-by: Li Mingzhe <limingzhe1839@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I92014ec448d6d1c11dd497e7b3917f397201fcb5
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/pci/controller/pcie-phytium-ep.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/pci/controller/pcie-phytium-ep.c b/drivers/pci/controller/pcie-phytium-ep.c
+index edab8fb369ea..2f12d98ff2c8 100644
+--- a/drivers/pci/controller/pcie-phytium-ep.c
++++ b/drivers/pci/controller/pcie-phytium-ep.c
+@@ -150,8 +150,7 @@ static int phytium_pcie_ep_map_addr(struct pci_epc *epc, u8 fn, u8 vfn,
+ 	u32 r;
+ 	struct pci_epc_mem *mem = epc->mem;
+ 
+-	r = find_first_zero_bit(&priv->ob_region_map,
+-				sizeof(priv->ob_region_map) * BITS_PER_LONG);
++	r = find_first_zero_bit(&priv->ob_region_map, BITS_PER_LONG);
+ 	if (r >= priv->max_regions) {
+ 		dev_err(&epc->dev, "no free outbound region\n");
+ 		return -EINVAL;
+-- 
+2.47.0
+

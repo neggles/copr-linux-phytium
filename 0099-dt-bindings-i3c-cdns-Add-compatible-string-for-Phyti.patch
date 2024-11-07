@@ -1,0 +1,33 @@
+From b3314e76872009d504cc63230eea403d1bcb9146 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:08 +0800
+Subject: [PATCH 099/150] dt-bindings: i3c: cdns: Add compatible string for
+ Phytium SoCs
+
+Add "phytium,cdns-i3c-master" to be used for Phytium SoC Family.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I627317a0f0cf67b05c36c4d34b78a91e685b6911
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ Documentation/devicetree/bindings/i3c/cdns,i3c-master.yaml | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/i3c/cdns,i3c-master.yaml b/Documentation/devicetree/bindings/i3c/cdns,i3c-master.yaml
+index cc40d25358ec..ebc572300e3b 100644
+--- a/Documentation/devicetree/bindings/i3c/cdns,i3c-master.yaml
++++ b/Documentation/devicetree/bindings/i3c/cdns,i3c-master.yaml
+@@ -14,7 +14,9 @@ allOf:
+ 
+ properties:
+   compatible:
+-    const: cdns,i3c-master
++    enum:
++      - cdns,i3c-master
++      - phytium,cdns-i3c-master
+ 
+   reg:
+     maxItems: 1
+-- 
+2.47.0
+

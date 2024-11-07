@@ -1,0 +1,49 @@
+From 2ff4780d2ff972fb3a3f9cc60272a9eb0f38e74f Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:10 +0800
+Subject: [PATCH 123/150] firmware: arm_scmi: Make mailbox transport poll on
+ Phytium mailbox
+
+There is no completion irq available with Phytium mailbox
+implementation. Use the core common polling machinery if we detect
+phytium mailbox.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I58249373a73c93b672969259e54cb7163165049d
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/firmware/arm_scmi/mailbox.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/firmware/arm_scmi/mailbox.c b/drivers/firmware/arm_scmi/mailbox.c
+index 8e513f70b75d..0829bd1bc333 100644
+--- a/drivers/firmware/arm_scmi/mailbox.c
++++ b/drivers/firmware/arm_scmi/mailbox.c
+@@ -169,6 +169,7 @@ static int mailbox_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
+ 	struct mbox_client *cl;
+ 	resource_size_t size;
+ 	struct resource res;
++	struct of_phandle_args args;
+ 
+ 	ret = mailbox_chan_validate(cdev, &a2p_rx_chan, &p2a_chan);
+ 	if (ret)
+@@ -228,6 +229,16 @@ static int mailbox_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
+ 		}
+ 	}
+ 
++	ret = of_parse_phandle_with_args(cdev->of_node, "mboxes",
++					 "#mbox-cells", 1, &args);
++	if (ret) {
++		dev_err(cdev, "failed to get SCMI %s mailbox\n", desc);
++		return ret;
++	}
++
++	if (of_device_is_compatible(args.np, "phytium,mbox"))
++		cinfo->no_completion_irq = true;
++
+ 	cinfo->transport_info = smbox;
+ 	smbox->cinfo = cinfo;
+ 	mutex_init(&smbox->chan_lock);
+-- 
+2.47.0
+

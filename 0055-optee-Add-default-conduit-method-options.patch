@@ -1,0 +1,85 @@
+From e89b80a0a8987fcda2369eaab1fd2043edc74f70 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:04 +0800
+Subject: [PATCH 055/150] optee: Add default conduit method options
+
+Add a default conduit method Kconfig to select "hvc" or "smc"
+in case firmware misses the "method" property in OP-TEE node.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I3f594c645f02efda204808b6daf74b0356ab40e3
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/tee/optee/Kconfig   | 30 ++++++++++++++++++++++++++++++
+ drivers/tee/optee/smc_abi.c | 10 +++++++++-
+ 2 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/tee/optee/Kconfig b/drivers/tee/optee/Kconfig
+index 70898bbd5809..dc097c2867e5 100644
+--- a/drivers/tee/optee/Kconfig
++++ b/drivers/tee/optee/Kconfig
+@@ -24,3 +24,33 @@ config OPTEE_INSECURE_LOAD_IMAGE
+ 
+ 	  Additional documentation on kernel security risks are at
+ 	  Documentation/staging/tee.rst.
++
++if OPTEE
++
++choice
++	prompt "Default conduit method"
++	default OPTEE_DEFAULT_METHOD_NONE
++	help
++	  This option sets the default conduit method for OP-TEE in case
++	  firmware misses "method" property. If in doubt, select "none"
++	  which depends on firmware to provide the value.
++
++config OPTEE_DEFAULT_METHOD_NONE
++	bool "none"
++	help
++	  There is no default conduit method used by the driver. Require
++	  firmware to provide the method explicitly.
++
++config OPTEE_DEFAULT_METHOD_HVC
++	bool "hvc"
++	help
++	  Use the "hvc" as default conduit method.
++
++config OPTEE_DEFAULT_METHOD_SMC
++	bool "smc"
++	help
++	  Use the "hvc" as default conduit method.
++
++endchoice
++
++endif
+diff --git a/drivers/tee/optee/smc_abi.c b/drivers/tee/optee/smc_abi.c
+index 7719674f65f6..d1c1a0de5fb3 100644
+--- a/drivers/tee/optee/smc_abi.c
++++ b/drivers/tee/optee/smc_abi.c
+@@ -1425,6 +1425,14 @@ static void optee_smccc_hvc(unsigned long a0, unsigned long a1,
+ 	arm_smccc_hvc(a0, a1, a2, a3, a4, a5, a6, a7, res);
+ }
+ 
++#if defined(CONFIG_OPTEE_DEFAULT_METHOD_HVC)
++#define DEFAULT_CONDUIT_METHOD optee_smccc_hvc
++#elif defined(CONFIG_OPTEE_DEFAULT_METHOD_SMC)
++#define DEFAULT_CONDUIT_METHOD optee_smccc_hvc
++#else
++#define DEFAULT_CONDUIT_METHOD ERR_PTR(-ENXIO)
++#endif
++
+ static optee_invoke_fn *get_invoke_func(struct device *dev)
+ {
+ 	const char *method;
+@@ -1433,7 +1441,7 @@ static optee_invoke_fn *get_invoke_func(struct device *dev)
+ 
+ 	if (device_property_read_string(dev, "method", &method)) {
+ 		pr_warn("missing \"method\" property\n");
+-		return ERR_PTR(-ENXIO);
++		return DEFAULT_CONDUIT_METHOD;
+ 	}
+ 
+ 	if (!strcmp("hvc", method))
+-- 
+2.47.0
+

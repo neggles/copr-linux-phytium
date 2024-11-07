@@ -1,0 +1,35 @@
+From b4948dcc85ecbc2fa26dcf04809be1693f52d59a Mon Sep 17 00:00:00 2001
+From: Song Wenting <songwenting@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:09 +0800
+Subject: [PATCH 110/150] dt-bindings: macb: Add bindings for Phytium GEM 2.0
+
+This patch document the DT bindings for the Phytium gem2.0
+controller.
+
+Signed-off-by: Song Wenting <songwenting@phytium.com.cn>
+Signed-off-by: Li Wencheng <liwencheng@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I4d5451337091dbb93f627c42fd16c31897be2002
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ Documentation/devicetree/bindings/net/cdns,macb.yaml | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/cdns,macb.yaml b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+index c09fcf5041c4..c0ab8b39f2aa 100644
+--- a/Documentation/devicetree/bindings/net/cdns,macb.yaml
++++ b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+@@ -48,7 +48,8 @@ properties:
+ 
+       - items:
+           - enum:
+-              - cdns,phytium-gem     # Phytium SoC
++              - cdns,phytium-gem      # Phytium SoC
++              - cdns,phytium-gem-2.0  # Phytium SoC 2.0
+           - const: cdns,gmac          # Generic
+ 
+       - enum:
+-- 
+2.47.0
+

@@ -1,0 +1,33 @@
+From 57a9127eddd8fce79bce000ba85aea340e7cf3b4 Mon Sep 17 00:00:00 2001
+From: Lai Xueyu <laixueyu1280@phytium.com.cn>
+Date: Fri, 21 Jun 2024 15:03:32 +0800
+Subject: [PATCH 144/150] mmc: phytium: Fix the phase problem of emmc at high
+ temperature
+
+Adjust the CMD register configuration of controller according to
+the phase analysis of the verification results.
+
+Signed-off-by: Lai Xueyu <laixueyu1280@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Change-Id: Ieedce84dec8df7cced703fb9a5d3a9ea8228f6cd
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/mmc/host/phytium-mci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/mmc/host/phytium-mci.c b/drivers/mmc/host/phytium-mci.c
+index 02e494a2e1e6..852f1f0067a5 100644
+--- a/drivers/mmc/host/phytium-mci.c
++++ b/drivers/mmc/host/phytium-mci.c
+@@ -315,7 +315,7 @@ u32 phytium_mci_cmd_prepare_raw_cmd(struct phytium_mci_host *host,
+ 	if (host->use_hold)
+ 		rawcmd |= (0x1 << 29);
+ 
+-	return (rawcmd | (0x1 << 29) | (0x1 << 31));
++	return (rawcmd | (0x1 << 31));
+ }
+ 
+ static inline void
+-- 
+2.47.0
+

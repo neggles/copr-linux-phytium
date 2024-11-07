@@ -1,0 +1,36 @@
+From d2dddb3a87a6c5a8ee1c8d1d94d091e5f08a744a Mon Sep 17 00:00:00 2001
+From: Li Wencheng <liwencheng@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:11 +0800
+Subject: [PATCH 134/150] net: phy: Bugfix rmmod phylink module fail problem
+
+The phylink driver module must have an exit function to exit.
+If not, it cannot exit.
+
+Signed-off-by: Li Wencheng <liwencheng@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I4e03975fbe51ed65d007954ff5d974cd1346752e
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/net/phy/phylink.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
+index b5f012619e42..fead848224bb 100644
+--- a/drivers/net/phy/phylink.c
++++ b/drivers/net/phy/phylink.c
+@@ -3739,6 +3739,11 @@ static int __init phylink_init(void)
+ 	return 0;
+ }
+ 
++static void __exit phylink_exit(void)
++{
++}
++
+ module_init(phylink_init);
++module_exit(phylink_exit);
+ 
+ MODULE_LICENSE("GPL v2");
+-- 
+2.47.0
+

@@ -1,0 +1,47 @@
+From 8ac2c9add6a2bb152e2eb3f85da29b4ba18a702d Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:09 +0800
+Subject: [PATCH 106/150] net: macb: Add compatible string for Phytium SoCs
+
+Add compatible string and config structure for Phytium SoCs.
+
+Signed-off-by: Song Wenting <songwenting@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: If6d4cf0ae394349eec93442dbdbe65f51355af43
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/net/ethernet/cadence/macb_main.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+index e391b2731345..a79d5c9e9a42 100644
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -4935,6 +4935,16 @@ static const struct macb_config versal_config = {
+ 	.usrio = &macb_default_usrio,
+ };
+ 
++static const struct macb_config phytium_config = {
++	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO |
++		MACB_CAPS_GEM_HAS_PTP |	MACB_CAPS_BD_RD_PREFETCH,
++	.dma_burst_length = 16,
++	.clk_init = macb_clk_init,
++	.init = macb_init,
++	.jumbo_max_len = 10240,
++	.usrio = &macb_default_usrio,
++};
++
+ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
+ 	{ .compatible = "cdns,macb" },
+@@ -4958,6 +4968,7 @@ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "xlnx,zynqmp-gem", .data = &zynqmp_config},
+ 	{ .compatible = "xlnx,zynq-gem", .data = &zynq_config },
+ 	{ .compatible = "xlnx,versal-gem", .data = &versal_config},
++	{ .compatible = "cdns,phytium-gem", .data = &phytium_config },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, macb_dt_ids);
+-- 
+2.47.0
+
