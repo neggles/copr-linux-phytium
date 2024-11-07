@@ -1,0 +1,200 @@
+From f04e05107bb01ed036c8f25c9f1e8c53935010ba Mon Sep 17 00:00:00 2001
+From: Zhang Yiqun <zhangyiqun@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:06 +0800
+Subject: [PATCH 078/150] mfd: Add support for Phytium Px210 I2S controller on
+ LSD
+
+This patch uses mfd cell to create I2S controller on Phytium
+Px210 LSD as platform device.
+
+Signed-off-by: Zhang Yiqun <zhangyiqun@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I594f8452411a97d4ae4bd46977089f7819cc54bc
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ MAINTAINERS                         |   1 +
+ drivers/mfd/Kconfig                 |   6 ++
+ drivers/mfd/Makefile                |   2 +
+ drivers/mfd/phytium_px210_i2s_lsd.c | 131 ++++++++++++++++++++++++++++
+ 4 files changed, 140 insertions(+)
+ create mode 100644 drivers/mfd/phytium_px210_i2s_lsd.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e1853bf87e95..d66dc00bcb52 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2572,6 +2572,7 @@ F:	drivers/input/serio/phytium-ps2.c
+ F:	drivers/irqchip/irq-phytium-ixic.c
+ F:	drivers/mailbox/phytium_mailbox.c
+ F:	drivers/media/platform/phytium-jpeg/phytium_jpeg*
++F:	drivers/mfd/phytium_px210_i2s_lsd.c
+ F:	drivers/mmc/host/phytium-mci*
+ F:	drivers/mmc/host/phytium-sdci.*
+ F:	drivers/mtd/nand/raw/phytium_nand*
+diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
+index 68d71b4b55bd..e2e0c97f9352 100644
+--- a/drivers/mfd/Kconfig
++++ b/drivers/mfd/Kconfig
+@@ -1107,6 +1107,12 @@ config PCF50633_GPIO
+ 	  Say yes here if you want to include support GPIO for pins on
+ 	  the PCF50633 chip.
+ 
++config MFD_PHYTIUM_I2S_LSD
++	bool "PHYTIUM Px210 I2S LSD MFD driver"
++	depends on (PCI && ARCH_PHYTIUM)
++	help
++	  This enables support for the Phytium Px210 LSD I2S controller.
++
+ config MFD_PM8XXX
+ 	tristate "Qualcomm PM8xxx PMIC chips driver"
+ 	depends on (ARM || HEXAGON || COMPILE_TEST)
+diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
+index db1ba39de3b5..0e419e6dde80 100644
+--- a/drivers/mfd/Makefile
++++ b/drivers/mfd/Makefile
+@@ -282,3 +282,5 @@ obj-$(CONFIG_MFD_ATC260X_I2C)	+= atc260x-i2c.o
+ 
+ obj-$(CONFIG_MFD_RSMU_I2C)	+= rsmu_i2c.o rsmu_core.o
+ obj-$(CONFIG_MFD_RSMU_SPI)	+= rsmu_spi.o rsmu_core.o
++
++obj-$(CONFIG_MFD_PHYTIUM_I2S_LSD)	+= phytium_px210_i2s_lsd.o
+diff --git a/drivers/mfd/phytium_px210_i2s_lsd.c b/drivers/mfd/phytium_px210_i2s_lsd.c
+new file mode 100644
+index 000000000000..58de96a0cdcf
+--- /dev/null
++++ b/drivers/mfd/phytium_px210_i2s_lsd.c
+@@ -0,0 +1,131 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Phytium I2S LSD MFD driver over PCI bus
++ *
++ * Copyright (C) 2020-2023, Phytium Technology Co., Ltd.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/mfd/core.h>
++
++struct phytium_px210_mfd {
++	struct device		*dev;
++};
++
++struct pdata_px210_mfd {
++	struct device		*dev;
++	char			*name;
++	int			clk_base;
++};
++
++static struct resource phytium_px210_i2s_res0[] = {
++	[0] = {
++		.flags = IORESOURCE_MEM,
++	},
++	[1] = {
++		.flags = IORESOURCE_MEM,
++	},
++	[2] = {
++		.flags = IORESOURCE_IRQ,
++	},
++};
++
++static struct mfd_cell phytium_px210_mfd_cells[] = {
++	{
++		.id = 0,
++		.name = "phytium-i2s",
++		.of_compatible = "phytium,i2s",
++		.resources = phytium_px210_i2s_res0,
++		.num_resources = ARRAY_SIZE(phytium_px210_i2s_res0),
++		.ignore_resource_conflicts = true,
++	},
++};
++
++static void phytium_px210_i2s_setup(struct pci_dev *pdev)
++{
++	struct mfd_cell *cell = &phytium_px210_mfd_cells[0];
++	struct resource *res = (struct resource *)cell->resources;
++	struct pdata_px210_mfd *pdata;
++
++	res[0].start = pci_resource_start(pdev, 0);
++	res[0].end = pci_resource_start(pdev, 0) + 0x0fff;
++
++	res[1].start = pci_resource_start(pdev, 0) + 0x1000;
++	res[1].end = pci_resource_start(pdev, 0) + 0x1fff;
++
++	res[2].start = pdev->irq;
++	res[2].end = pdev->irq;
++
++	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
++
++	pdata->dev = &pdev->dev;
++	pdata->name = "phytium-i2s-lsd";
++	pdata->clk_base = 480000000;
++
++	cell->platform_data = pdata;
++	cell->pdata_size = sizeof(*pdata);
++}
++
++static int phytium_px210_mfd_probe(struct pci_dev *pdev,
++				 const struct pci_device_id *id)
++{
++	struct phytium_px210_mfd *phytium_mfd;
++	int ret;
++
++	ret = pcim_enable_device(pdev);
++	if (ret)
++		return ret;
++
++	pci_set_master(pdev);
++
++	phytium_mfd = devm_kzalloc(&pdev->dev, sizeof(*phytium_mfd), GFP_KERNEL);
++	if (!phytium_mfd)
++		return -ENOMEM;
++
++	phytium_mfd->dev = &pdev->dev;
++	dev_set_drvdata(&pdev->dev, phytium_mfd);
++
++	phytium_px210_i2s_setup(pdev);
++
++	ret = mfd_add_devices(&pdev->dev, 0, phytium_px210_mfd_cells,
++			      ARRAY_SIZE(phytium_px210_mfd_cells), NULL, 0,
++			      NULL);
++	if (ret)
++		return 0;
++
++	return 0;
++}
++
++
++static void phytium_px210_mfd_remove(struct pci_dev *pdev)
++{
++	mfd_remove_devices(&pdev->dev);
++}
++
++static const struct pci_device_id phytium_px210_mfd_ids[] = {
++	{
++		.vendor		= 0x1DB7,
++		.device		= 0xDC2B,
++		.subvendor	= PCI_ANY_ID,
++		.subdevice	= PCI_ANY_ID,
++		.class		= 0x3,
++		.class_mask	= 0,
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(pci, phytium_px210_mfd_ids);
++
++static struct pci_driver phytium_i2s_lsd_mfd_driver = {
++	.name		= "phytium_px210_mfd_i2s",
++	.id_table	= phytium_px210_mfd_ids,
++	.probe		= phytium_px210_mfd_probe,
++	.remove		= phytium_px210_mfd_remove,
++};
++
++module_pci_driver(phytium_i2s_lsd_mfd_driver);
++
++MODULE_AUTHOR("Zhang Yiqun <zhangyiqun@phytium.com.cn>");
++MODULE_DESCRIPTION("Phytium Px210 MFD PCI driver for I2S-LSD");
++MODULE_LICENSE("GPL");
+-- 
+2.47.0
+

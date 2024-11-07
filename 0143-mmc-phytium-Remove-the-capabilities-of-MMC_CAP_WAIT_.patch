@@ -1,0 +1,35 @@
+From bcb94365a88d58c930eab0a2af876f4281bbd334 Mon Sep 17 00:00:00 2001
+From: Lai Xueyu <laixueyu1280@phytium.com.cn>
+Date: Fri, 21 Jun 2024 14:58:40 +0800
+Subject: [PATCH 143/150] mmc: phytium: Remove the capabilities of
+ MMC_CAP_WAIT_WHILE_BUSY
+
+According to the hardware design, the MMC controller does not
+support detecting whether the MMC card is busy from the DATA
+signal. So we remove the MMC_CAP_WAIT_WHILE_BUSY to enable
+software poll_for_busy.
+
+Signed-off-by: Lai Xueyu <laixueyu1280@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Change-Id: I1be289063d4c8a254ab173022d252dd9246281fd
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/mmc/host/phytium-mci-plat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/mmc/host/phytium-mci-plat.c b/drivers/mmc/host/phytium-mci-plat.c
+index a774f09a7a2e..c05374b713ee 100644
+--- a/drivers/mmc/host/phytium-mci-plat.c
++++ b/drivers/mmc/host/phytium-mci-plat.c
+@@ -14,7 +14,7 @@
+ #include <linux/dma-mapping.h>
+ #include "phytium-mci.h"
+ 
+-static u32 mci_caps = MMC_CAP_CMD23 | MMC_CAP_WAIT_WHILE_BUSY;
++static u32 mci_caps = MMC_CAP_CMD23;
+ 
+ #if defined CONFIG_PM && defined CONFIG_PM_SLEEP
+ 
+-- 
+2.47.0
+

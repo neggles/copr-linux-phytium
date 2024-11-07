@@ -1,0 +1,56 @@
+From f59637a2a4e2a305e02c95974ad00531168b50cb Mon Sep 17 00:00:00 2001
+From: Zhou Zheng <zhouzheng2069@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:07 +0800
+Subject: [PATCH 085/150] i2s: phytium: Add clock divider in S3 resume
+
+Bugfix the problem that the sound is not played correctly after
+waking up from sleep.
+
+Signed-off-by: Zhou Zheng <zhouzheng2069@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Idd836b5af793a99710d0ea00d081c5a51807c67e
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ sound/soc/phytium/local.h       | 2 +-
+ sound/soc/phytium/phytium_i2s.c | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/phytium/local.h b/sound/soc/phytium/local.h
+index 23d782d49d08..47c3c6c8cfbb 100644
+--- a/sound/soc/phytium/local.h
++++ b/sound/soc/phytium/local.h
+@@ -306,7 +306,7 @@ struct i2s_phytium {
+ 	u32 xfer_resolution;
+ 	u32 ccr;
+ 	u32 clk_base;
+-
++	u32 cfg;
+ 	struct i2s_clk_config_data config;
+ 
+ 	/*azx_dev*/
+diff --git a/sound/soc/phytium/phytium_i2s.c b/sound/soc/phytium/phytium_i2s.c
+index a01f83a06874..6457e428cfe2 100644
+--- a/sound/soc/phytium/phytium_i2s.c
++++ b/sound/soc/phytium/phytium_i2s.c
+@@ -270,6 +270,7 @@ static int phytium_i2s_hw_params(struct snd_pcm_substream *substream,
+ 		i2s_write_reg(dev->regs, CLK_CFG0, cfg);
+ 		i2s_write_reg(dev->regs, CLK_CFG1, 0xf);
+ 	}
++	dev->cfg = cfg;
+ 	return 0;
+ }
+ 
+@@ -367,7 +368,8 @@ static int phytium_i2s_resume(struct snd_soc_component *component)
+ 		if (snd_soc_dai_stream_active(dai, SNDRV_PCM_STREAM_CAPTURE))
+ 			phytium_i2s_config(dev, SNDRV_PCM_STREAM_CAPTURE);
+ 	}
+-
++	i2s_write_reg(dev->regs, CLK_CFG0, dev->cfg);
++	i2s_write_reg(dev->regs, CLK_CFG1, 0xf);
+ 	return 0;
+ }
+ #else
+-- 
+2.47.0
+

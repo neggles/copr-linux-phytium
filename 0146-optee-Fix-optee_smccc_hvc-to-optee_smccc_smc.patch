@@ -1,0 +1,31 @@
+From 400a600211e2a82ec9c71f459ce138604a39c170 Mon Sep 17 00:00:00 2001
+From: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Date: Fri, 21 Jun 2024 15:31:30 +0800
+Subject: [PATCH 146/150] optee: Fix optee_smccc_hvc to optee_smccc_smc
+
+This patch is fixed #define DEFAULT_CONDUIT_METHOD optee_smccc_hvc
+to #define DEFAULT_CONDUIT_METHOD optee_smccc_smc
+
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Change-Id: I6696a126ce4c9a07348686adae2f5873152fdf21
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/tee/optee/smc_abi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/tee/optee/smc_abi.c b/drivers/tee/optee/smc_abi.c
+index d1c1a0de5fb3..e2b16275df1d 100644
+--- a/drivers/tee/optee/smc_abi.c
++++ b/drivers/tee/optee/smc_abi.c
+@@ -1428,7 +1428,7 @@ static void optee_smccc_hvc(unsigned long a0, unsigned long a1,
+ #if defined(CONFIG_OPTEE_DEFAULT_METHOD_HVC)
+ #define DEFAULT_CONDUIT_METHOD optee_smccc_hvc
+ #elif defined(CONFIG_OPTEE_DEFAULT_METHOD_SMC)
+-#define DEFAULT_CONDUIT_METHOD optee_smccc_hvc
++#define DEFAULT_CONDUIT_METHOD optee_smccc_smc
+ #else
+ #define DEFAULT_CONDUIT_METHOD ERR_PTR(-ENXIO)
+ #endif
+-- 
+2.47.0
+

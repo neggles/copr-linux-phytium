@@ -1,0 +1,42 @@
+From f43822a498c2902b1b4b356729fc607afd8d518b Mon Sep 17 00:00:00 2001
+From: Zhou Zheng <zhouzheng2069@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:07 +0800
+Subject: [PATCH 082/150] ASoC: codec: This patch makes ES8336 module reload
+ smoothly
+
+It solves the problem of accessing NULL pointer when reloaded.
+
+Signed-off-by: Zhou Zheng <zhouzheng2069@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I454251c217889df7eb057e74a4cddf5f09593d91
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ sound/soc/codecs/es8336.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/codecs/es8336.c b/sound/soc/codecs/es8336.c
+index ef147857bd29..4e224b035c3b 100644
+--- a/sound/soc/codecs/es8336.c
++++ b/sound/soc/codecs/es8336.c
+@@ -1022,7 +1022,7 @@ static int es8336_i2c_probe(struct i2c_client *i2c)
+ 				      msecs_to_jiffies(es8336->debounce_time));
+ 	}
+ 
+-	ret = snd_soc_register_component(&i2c->dev,
++	ret = devm_snd_soc_register_component(&i2c->dev,
+ 				     &soc_component_dev_es8336,
+ 				     &es8336_dai, 1);
+ 
+@@ -1031,7 +1031,7 @@ static int es8336_i2c_probe(struct i2c_client *i2c)
+ 
+ static void es8336_i2c_remove(struct i2c_client *client)
+ {
+-	kfree(i2c_get_clientdata(client));
++
+ }
+ 
+ static void es8336_i2c_shutdown(struct i2c_client *client)
+-- 
+2.47.0
+

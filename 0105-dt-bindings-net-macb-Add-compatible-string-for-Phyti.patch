@@ -1,0 +1,34 @@
+From e48693bae792c5e0c0df45c86d1d232713ef125d Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:09 +0800
+Subject: [PATCH 105/150] dt-bindings: net: macb: Add compatible string for
+ Phytium SoCs
+
+Add "cdns,phytium-gem" to be used for Phytium SoC Family.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Idbb82e0aeee56b77ef5158421d6f78562146f690
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ Documentation/devicetree/bindings/net/cdns,macb.yaml | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/cdns,macb.yaml b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+index bf8894a0257e..c09fcf5041c4 100644
+--- a/Documentation/devicetree/bindings/net/cdns,macb.yaml
++++ b/Documentation/devicetree/bindings/net/cdns,macb.yaml
+@@ -46,6 +46,11 @@ properties:
+               - cdns,at91sam9260-macb # Atmel at91sam9 SoCs.
+           - const: cdns,macb          # Generic
+ 
++      - items:
++          - enum:
++              - cdns,phytium-gem     # Phytium SoC
++          - const: cdns,gmac          # Generic
++
+       - enum:
+           - atmel,sama5d29-gem        # GEM XL IP (10/100) on Atmel sama5d29 SoCs
+           - atmel,sama5d2-gem         # GEM IP (10/100) on Atmel sama5d2 SoCs
+-- 
+2.47.0
+

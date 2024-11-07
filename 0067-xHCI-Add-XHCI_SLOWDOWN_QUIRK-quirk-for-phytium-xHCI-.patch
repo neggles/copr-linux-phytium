@@ -1,0 +1,66 @@
+From 205e38db79977cd8d76134fe79969453bc73d9f9 Mon Sep 17 00:00:00 2001
+From: Feng Jun <fengjun@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:05 +0800
+Subject: [PATCH 067/150] xHCI: Add XHCI_SLOWDOWN_QUIRK quirk for phytium xHCI
+ controller
+
+Since current Phytium Px210 xHCI host controller does not support
+USB Gen2(10Gbps) well, add the XHCI_SLOWDOWN_QUIRK quirk and
+modify the limited speed to 5Gbps.
+
+Signed-off-by: Feng Jun <fengjun@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I58a9160c105ecebb91e6e65d3bb7511a5020aa0b
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/usb/host/xhci-mem.c | 4 ++++
+ drivers/usb/host/xhci-pci.c | 4 +++-
+ drivers/usb/host/xhci.h     | 1 +
+ 3 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/host/xhci-mem.c b/drivers/usb/host/xhci-mem.c
+index 54c47463c215..38b631cacd97 100644
+--- a/drivers/usb/host/xhci-mem.c
++++ b/drivers/usb/host/xhci-mem.c
+@@ -1998,6 +1998,10 @@ static void xhci_add_in_port(struct xhci_hcd *xhci, unsigned int num_ports,
+ 		return;
+ 	}
+ 
++	if (xhci->quirks & XHCI_PHYTIUM_SLOWDOWN_QUIRK)
++		if (major_revision == 0x03)
++			rhub->min_rev = 0;
++
+ 	/* Port offset and count in the third dword, see section 7.2 */
+ 	temp = readl(addr + 2);
+ 	port_offset = XHCI_EXT_PORT_OFF(temp);
+diff --git a/drivers/usb/host/xhci-pci.c b/drivers/usb/host/xhci-pci.c
+index 6f08b76c9622..2eeac75dbd4d 100644
+--- a/drivers/usb/host/xhci-pci.c
++++ b/drivers/usb/host/xhci-pci.c
+@@ -487,8 +487,10 @@ static void xhci_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
+ 		xhci->quirks |= XHCI_RESET_ON_RESUME;
+ 
+ 	if (pdev->vendor == PCI_VENDOR_ID_PHYTIUM ||
+-	    pdev->device == PCI_DEVICE_ID_PHYTIUM_XHCI)
++	    pdev->device == PCI_DEVICE_ID_PHYTIUM_XHCI) {
+ 		xhci->quirks |= XHCI_RESET_ON_RESUME;
++		xhci->quirks |= XHCI_PHYTIUM_SLOWDOWN_QUIRK;
++	}
+ 
+ 	/* See https://bugzilla.kernel.org/show_bug.cgi?id=79511 */
+ 	if (pdev->vendor == PCI_VENDOR_ID_VIA &&
+diff --git a/drivers/usb/host/xhci.h b/drivers/usb/host/xhci.h
+index f2190d121233..2e94376d4de2 100644
+--- a/drivers/usb/host/xhci.h
++++ b/drivers/usb/host/xhci.h
+@@ -1660,6 +1660,7 @@ struct xhci_hcd {
+ #define XHCI_ZHAOXIN_HOST	BIT_ULL(46)
+ #define XHCI_WRITE_64_HI_LO	BIT_ULL(47)
+ #define XHCI_CDNS_SCTX_QUIRK	BIT_ULL(48)
++#define XHCI_PHYTIUM_SLOWDOWN_QUIRK	BIT_ULL(49)
+ 
+ 	unsigned int		num_active_eps;
+ 	unsigned int		limit_active_eps;
+-- 
+2.47.0
+

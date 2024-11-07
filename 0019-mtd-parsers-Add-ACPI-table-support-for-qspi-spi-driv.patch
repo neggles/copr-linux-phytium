@@ -1,0 +1,603 @@
+From 583a8be3f7c169c68759160acc92ca2061c1ca7c Mon Sep 17 00:00:00 2001
+From: Wang Hanmo <wanghanmo2242@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:01 +0800
+Subject: [PATCH 019/150] mtd: parsers: Add ACPI table support for qspi/spi
+ driver
+
+Add acpi table support for qspi/spi driver, supporting
+parsing of ACPI tables.
+
+Signed-off-by: Wang Hanmo <wanghanmo2242@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I6e66b3326869c927338288b7727b07252b86844e
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ MAINTAINERS                         |   1 +
+ drivers/mtd/mtdcore.c               |   9 +-
+ drivers/mtd/mtdpart.c               |  54 ++++++++++-
+ drivers/mtd/parsers/Kconfig         |   9 ++
+ drivers/mtd/parsers/Makefile        |   2 +
+ drivers/mtd/parsers/acpipart_core.c | 142 ++++++++++++++++++++++++++++
+ drivers/mtd/spi-nor/core.c          |  13 +++
+ drivers/spi/spi-phytium-qspi.c      |  77 ++++++++++-----
+ include/linux/mtd/partitions.h      |   4 +
+ 9 files changed, 280 insertions(+), 31 deletions(-)
+ create mode 100644 drivers/mtd/parsers/acpipart_core.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 27c892445a55..2e81b1bc508e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2537,6 +2537,7 @@ F:	Documentation/devicetree/bindings/spi/phytium,spi.yaml
+ F:	arch/arm64/boot/dts/phytium/*
+ F:	drivers/gpio/gpio-phytium*
+ F:	drivers/mmc/host/phytium-sdci.*
++F:	drivers/mtd/parsers/acpipart_core.c
+ F:	drivers/spi/spi-phytium*
+ F:	drivers/spi/spi-phytium-qspi.c
+ 
+diff --git a/drivers/mtd/mtdcore.c b/drivers/mtd/mtdcore.c
+index 97ca2a897f1d..c5a59c488123 100644
+--- a/drivers/mtd/mtdcore.c
++++ b/drivers/mtd/mtdcore.c
+@@ -743,7 +743,8 @@ int add_mtd_device(struct mtd_info *mtd)
+ 	dev_set_name(&mtd->dev, "mtd%d", i);
+ 	dev_set_drvdata(&mtd->dev, mtd);
+ 	mtd_check_of_node(mtd);
+-	of_node_get(mtd_get_of_node(mtd));
++	if (mtd->dev.of_node)
++		of_node_get(mtd_get_of_node(mtd));
+ 	error = device_register(&mtd->dev);
+ 	if (error) {
+ 		put_device(&mtd->dev);
+@@ -905,7 +906,8 @@ static struct nvmem_device *mtd_otp_nvmem_register(struct mtd_info *mtd,
+ 	config.ignore_wp = true;
+ 	config.reg_read = reg_read;
+ 	config.size = size;
+-	config.of_node = np;
++	if (IS_ENABLED(CONFIG_OF))
++		config.of_node = np;
+ 	config.priv = mtd;
+ 
+ 	nvmem = nvmem_register(&config);
+@@ -913,7 +915,8 @@ static struct nvmem_device *mtd_otp_nvmem_register(struct mtd_info *mtd,
+ 	if (IS_ERR(nvmem) && PTR_ERR(nvmem) == -EOPNOTSUPP)
+ 		nvmem = NULL;
+ 
+-	of_node_put(np);
++	if (IS_ENABLED(CONFIG_OF))
++		of_node_put(np);
+ 
+ 	return nvmem;
+ }
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index 23483db8f30c..941acf533260 100644
+--- a/drivers/mtd/mtdpart.c
++++ b/drivers/mtd/mtdpart.c
+@@ -19,6 +19,8 @@
+ #include <linux/of.h>
+ #include <linux/of_platform.h>
+ 
++#include <linux/acpi.h>
++#include <linux/property.h>
+ #include "mtdcore.h"
+ 
+ /*
+@@ -504,12 +506,14 @@ EXPORT_SYMBOL_GPL(deregister_mtd_parser);
+ static const char * const default_mtd_part_types[] = {
+ 	"cmdlinepart",
+ 	"ofpart",
++	"acpipart",
+ 	NULL
+ };
+ 
+ /* Check DT only when looking for subpartitions. */
+ static const char * const default_subpartition_types[] = {
+ 	"ofpart",
++	"acpipart",
+ 	NULL
+ };
+ 
+@@ -573,6 +577,44 @@ static struct mtd_part_parser *mtd_part_get_compatible_parser(const char *compat
+ 	return ret;
+ }
+ 
++static int mtd_part_acpi_parse(struct mtd_info *master,
++						struct mtd_partitions *pparts)
++{
++	struct mtd_part_parser *parser;
++	struct acpi_device *adev;
++	struct fwnode_handle *child;
++	const char *compat;
++	const char *fixed = "acpi-partitions";
++	int ret, err = 0;
++	int compare = 1;
++	struct device *dev = &master->dev;
++
++	if (has_acpi_companion(dev))
++		adev = ACPI_COMPANION(dev);
++	if (!mtd_is_partition(master)) {
++		fwnode_property_read_string(dev->fwnode, "fixed", &compat);
++		if (compat)
++			compare = strcmp(compat, fixed);
++	}
++
++	device_for_each_child_node(dev, child) {
++		if (compat && !compare) {
++			parser = mtd_part_parser_get(fixed);
++			if (!parser && !request_module("%s", fixed))
++				parser = mtd_part_parser_get(fixed);
++			if (parser) {
++				ret = mtd_part_do_parse(parser, master, pparts, NULL);
++				if (ret > 0)
++					return ret;
++				mtd_part_parser_put(parser);
++				if (ret < 0 && !err)
++					err = ret;
++			}
++		}
++	}
++	return err;
++}
++
+ static int mtd_part_of_parse(struct mtd_info *master,
+ 			     struct mtd_partitions *pparts)
+ {
+@@ -591,7 +633,7 @@ static int mtd_part_of_parse(struct mtd_info *master,
+ 		dev = master->dev.parent;
+ 
+ 	np = mtd_get_of_node(master);
+-	if (mtd_is_partition(master))
++	if (mtd_is_partition(master) && np)
+ 		of_node_get(np);
+ 	else
+ 		np = of_get_child_by_name(np, "partitions");
+@@ -612,7 +654,8 @@ static int mtd_part_of_parse(struct mtd_info *master,
+ 		ret = mtd_part_do_parse(parser, master, pparts, NULL);
+ 		if (ret > 0) {
+ 			of_platform_populate(np, NULL, NULL, dev);
+-			of_node_put(np);
++			if (np)
++				of_node_put(np);
+ 			return ret;
+ 		}
+ 		mtd_part_parser_put(parser);
+@@ -620,7 +663,8 @@ static int mtd_part_of_parse(struct mtd_info *master,
+ 			err = ret;
+ 	}
+ 	of_platform_populate(np, NULL, NULL, dev);
+-	of_node_put(np);
++	if (np)
++		of_node_put(np);
+ 
+ 	/*
+ 	 * For backward compatibility we have to try the "fixed-partitions"
+@@ -678,7 +722,9 @@ int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
+ 		 * should be used. It requires a bit different logic so it is
+ 		 * handled in a separated function.
+ 		 */
+-		if (!strcmp(*types, "ofpart")) {
++		if (!strcmp(*types, "acpipart")) {
++			ret = mtd_part_acpi_parse(master, &pparts);
++		} else if (!strcmp(*types, "ofpart")) {
+ 			ret = mtd_part_of_parse(master, &pparts);
+ 		} else {
+ 			pr_debug("%s: parsing partitions %s\n", master->name,
+diff --git a/drivers/mtd/parsers/Kconfig b/drivers/mtd/parsers/Kconfig
+index 60738edcd5d5..ae1870d271b5 100644
+--- a/drivers/mtd/parsers/Kconfig
++++ b/drivers/mtd/parsers/Kconfig
+@@ -96,6 +96,15 @@ config MTD_OF_PARTS_LINKSYS_NS
+ 	  two "firmware" partitions. Currently used firmware has to be detected
+ 	  using CFE environment variable.
+ 
++config MTD_ACPI_PARTS
++	tristate "ACPI partitioning parser"
++	default y
++	depends on ACPI
++	help
++	  This provides an acpi partition parser, which is used to parse the
++	  partition map described in ACPI table, as the children of the flash
++	  memory struct.
++
+ config MTD_PARSER_IMAGETAG
+ 	tristate "Parser for BCM963XX Image Tag format partitions"
+ 	depends on BCM63XX || BMIPS_GENERIC || COMPILE_TEST
+diff --git a/drivers/mtd/parsers/Makefile b/drivers/mtd/parsers/Makefile
+index 0e70b621a1d8..2679fd76684a 100644
+--- a/drivers/mtd/parsers/Makefile
++++ b/drivers/mtd/parsers/Makefile
+@@ -8,6 +8,8 @@ obj-$(CONFIG_MTD_OF_PARTS)		+= ofpart.o
+ ofpart-y				+= ofpart_core.o
+ ofpart-$(CONFIG_MTD_OF_PARTS_BCM4908)	+= ofpart_bcm4908.o
+ ofpart-$(CONFIG_MTD_OF_PARTS_LINKSYS_NS)+= ofpart_linksys_ns.o
++obj-$(CONFIG_MTD_ACPI_PARTS)		+= acpipart.o
++acpipart-y				+= acpipart_core.o
+ obj-$(CONFIG_MTD_PARSER_IMAGETAG)	+= parser_imagetag.o
+ obj-$(CONFIG_MTD_AFS_PARTS)		+= afs.o
+ obj-$(CONFIG_MTD_PARSER_TPLINK_SAFELOADER)	+= tplink_safeloader.o
+diff --git a/drivers/mtd/parsers/acpipart_core.c b/drivers/mtd/parsers/acpipart_core.c
+new file mode 100644
+index 000000000000..dde80407a605
+--- /dev/null
++++ b/drivers/mtd/parsers/acpipart_core.c
+@@ -0,0 +1,142 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Flash partitions described by the acpi table
++ *
++ * Author: Wang Hanmo <wanghanmo2242@phytium.com.cn>
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/mtd/mtd.h>
++#include <linux/slab.h>
++#include <linux/mtd/partitions.h>
++#include <linux/property.h>
++#include <linux/acpi.h>
++
++static const struct acpi_device_id parse_acpipart_match_table[];
++
++static int parse_acpi_fixed_partitions(struct mtd_info *master,
++				  const struct mtd_partition **pparts,
++				  struct mtd_part_parser_data *data)
++{
++	struct mtd_partition *parts;
++	const struct acpi_device_id *acpi_id;
++	const char *partname;
++	int nr_parts, i, ret = 0;
++	struct acpi_device *adev;
++	struct fwnode_handle *child_handle;
++	bool dedicated = true;
++	struct device *dev;
++
++	dev = &master->dev;
++	adev = ACPI_COMPANION(&master->dev);
++
++	if (!master->parent) {/*master*/
++		device_get_next_child_node(dev, child_handle);
++		if (!child_handle) {
++			pr_debug("%s: 'partitions' subnode not found on %pOF. Trying to parse direct subnodes as partitions.\n",
++				master->name, child_handle);
++			dedicated = false;
++		}
++	}
++
++	acpi_id = acpi_match_device(parse_acpipart_match_table, dev);
++	if (dedicated && !acpi_id)
++		return 0;
++
++	nr_parts = 0;
++	device_for_each_child_node(dev, child_handle) {
++		nr_parts++;
++	}
++
++	if (nr_parts == 0)
++		return 0;
++	parts = kcalloc(nr_parts, sizeof(*parts), GFP_KERNEL);
++	if (!parts)
++		return -ENOMEM;
++
++	i = 0;
++	device_for_each_child_node(dev, child_handle) {
++		u64 offset, length;
++		bool bool_match;
++
++		fwnode_property_read_u64(child_handle, "offset", &offset);
++		fwnode_property_read_u64(child_handle, "length", &length);
++		if (!offset && !length) {
++			if (dedicated) {
++				pr_debug("%s: acpipart partition %pOF (%pOF) missing reg property.\n",
++					 master->name, child_handle,
++					 dev->fwnode);
++				goto acpipart_fail;
++			} else {
++				nr_parts--;
++				continue;
++			}
++		}
++
++		parts[i].offset = offset;
++		parts[i].size = length;
++		parts[i].fwnode = child_handle;
++		if (!fwnode_property_read_string(child_handle, "label", &partname))
++			parts[i].name = partname;
++		bool_match = fwnode_property_read_bool(child_handle, "read-only");
++		if (bool_match)
++			parts[i].mask_flags |= MTD_WRITEABLE;
++		bool_match = fwnode_property_read_bool(child_handle, "lock");
++		if (bool_match)
++			parts[i].mask_flags |= MTD_POWERUP_LOCK;
++		bool_match = fwnode_property_read_bool(child_handle, "slc-mode");
++		if (bool_match)
++			parts[i].mask_flags |= MTD_SLC_ON_MLC_EMULATION;
++		i++;
++	}
++
++	if (!nr_parts)
++		goto acpipart_none;
++
++	*pparts = parts;
++	ret = nr_parts;
++	return ret;
++
++acpipart_fail:
++	pr_err("%s: error parsing acpipart partition %pOF (%pOF)\n",
++	       master->name, child_handle, dev->fwnode);
++	ret = -EINVAL;
++acpipart_none:
++	kfree(parts);
++	return ret;
++}
++
++static const struct acpi_device_id parse_acpipart_match_table[] = {
++	/* Generic */
++	{ "acpi-partitions", 0 },
++	/* Customized */
++	{},
++};
++
++MODULE_DEVICE_TABLE(acpi, parse_acpipart_match_table);
++
++static struct mtd_part_parser acpipart_parser = {
++	.parse_fn = parse_acpi_fixed_partitions,
++	.name = "acpi-fixed-partitions",
++	.acpi_match_table = ACPI_PTR(parse_acpipart_match_table),
++};
++
++static int __init acpipart_parser_init(void)
++{
++	register_mtd_parser(&acpipart_parser);
++	return 0;
++}
++
++static void __exit acpipart_parser_exit(void)
++{
++	deregister_mtd_parser(&acpipart_parser);
++}
++
++module_init(acpipart_parser_init);
++module_exit(acpipart_parser_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Parser for MTD partitioning information in acpi table");
++MODULE_AUTHOR("Wang Hanmo <wanghanmo2242@phytium.com.cn>");
++MODULE_ALIAS("acpi-partitions");
+diff --git a/drivers/mtd/spi-nor/core.c b/drivers/mtd/spi-nor/core.c
+index 1b0c6770c14e..0c67402f15b7 100644
+--- a/drivers/mtd/spi-nor/core.c
++++ b/drivers/mtd/spi-nor/core.c
+@@ -7,6 +7,7 @@
+  * Copyright (C) 2014, Freescale Semiconductor, Inc.
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/err.h>
+ #include <linux/errno.h>
+ #include <linux/delay.h>
+@@ -17,6 +18,7 @@
+ #include <linux/mtd/spi-nor.h>
+ #include <linux/mutex.h>
+ #include <linux/of_platform.h>
++#include <linux/property.h>
+ #include <linux/sched/task_stack.h>
+ #include <linux/sizes.h>
+ #include <linux/slab.h>
+@@ -3621,6 +3623,7 @@ static int spi_nor_probe(struct spi_mem *spimem)
+ 	struct spi_device *spi = spimem->spi;
+ 	struct flash_platform_data *data = dev_get_platdata(&spi->dev);
+ 	struct spi_nor *nor;
++	struct acpi_device *adev;
+ 	/*
+ 	 * Enable all caps by default. The core will mask them after
+ 	 * checking what's really supported using spi_mem_supports_op().
+@@ -3636,6 +3639,10 @@ static int spi_nor_probe(struct spi_mem *spimem)
+ 	nor->spimem = spimem;
+ 	nor->dev = &spi->dev;
+ 	spi_nor_set_flash_node(nor, spi->dev.of_node);
++	adev = ACPI_COMPANION(nor->dev);
++	nor->mtd.dev.fwnode = spi->dev.fwnode;
++
++	device_property_read_string(&spi->dev, "_HID", &nor->mtd.name);
+ 
+ 	spi_mem_set_drvdata(spimem, nor);
+ 
+@@ -3775,6 +3782,11 @@ static const struct of_device_id spi_nor_of_table[] = {
+ };
+ MODULE_DEVICE_TABLE(of, spi_nor_of_table);
+ 
++static const struct acpi_device_id spi_nor_acpi_table[] = {
++	{"PHYT8009", 0},
++	{ },
++};
++MODULE_DEVICE_TABLE(acpi, spi_nor_acpi_table);
+ /*
+  * REVISIT: many of these chips have deep power-down modes, which
+  * should clearly be entered on suspend() to minimize power use.
+@@ -3786,6 +3798,7 @@ static struct spi_mem_driver spi_nor_driver = {
+ 			.name = "spi-nor",
+ 			.of_match_table = spi_nor_of_table,
+ 			.dev_groups = spi_nor_sysfs_groups,
++			.acpi_match_table = spi_nor_acpi_table,
+ 		},
+ 		.id_table = spi_nor_dev_ids,
+ 	},
+diff --git a/drivers/spi/spi-phytium-qspi.c b/drivers/spi/spi-phytium-qspi.c
+index c68a790ed453..d97e3b705985 100644
+--- a/drivers/spi/spi-phytium-qspi.c
++++ b/drivers/spi/spi-phytium-qspi.c
+@@ -5,6 +5,7 @@
+  * Copyright (c) 2022-2023, Phytium Technology Co., Ltd.
+  */
+ 
++#include <linux/acpi.h>
+ #include <linux/clk.h>
+ #include <linux/errno.h>
+ #include <linux/interrupt.h>
+@@ -14,6 +15,7 @@
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/platform_device.h>
++#include <linux/property.h>
+ #include <linux/pm_runtime.h>
+ 
+ #include <linux/spi/spi-mem.h>
+@@ -639,6 +641,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
+ 	int i, ret;
+ 	struct spi_mem *mem;
+ 	struct spi_nor *nor;
++	const char **reg_name_array;
+ 
+ 	ctrl = spi_alloc_master(dev, sizeof(*qspi));
+ 	if (!ctrl)
+@@ -649,19 +652,36 @@ static int phytium_qspi_probe(struct platform_device *pdev)
+ 			  SPI_TX_DUAL | SPI_TX_QUAD;
+ 	ctrl->setup = phytium_qspi_setup;
+ 	ctrl->num_chipselect = PHYTIUM_QSPI_MAX_NORCHIP;
+-	ctrl->dev.of_node = dev->of_node;
++	if (IS_ENABLED(CONFIG_OF))
++		ctrl->dev.of_node = dev->of_node;
++	else if (IS_ENABLED(CONFIG_ACPI) && has_acpi_companion(dev))
++		ctrl->dev.fwnode = dev->fwnode;
+ 
+ 	qspi = spi_controller_get_devdata(ctrl);
+ 	qspi->ctrl = ctrl;
+ 
+-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi");
++	reg_name_array = kcalloc(4, sizeof(*reg_name_array), GFP_KERNEL);
++	if (dev->of_node)
++		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi");
++	else if (has_acpi_companion(dev)) {
++		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++		fwnode_property_read_string_array(dev->fwnode,
++						"reg-names", reg_name_array, 2);
++		res->name = reg_name_array[0];
++	}
+ 	qspi->io_base = devm_ioremap_resource(dev, res);
+ 	if (IS_ERR(qspi->io_base)) {
+ 		ret = PTR_ERR(qspi->io_base);
+ 		goto probe_master_put;
+ 	}
+ 
+-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi_mm");
++	if (dev->of_node)
++		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi_mm");
++	else if (has_acpi_companion(dev)) {
++		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++		res->name = reg_name_array[1];
++	}
++
+ 	qspi->mm_base = devm_ioremap_resource(dev, res);
+ 	if (IS_ERR(qspi->mm_base)) {
+ 		ret = PTR_ERR(qspi->mm_base);
+@@ -675,31 +695,34 @@ static int phytium_qspi_probe(struct platform_device *pdev)
+ 	}
+ 	qspi->used_size = 0;
+ 
+-	qspi->clk = devm_clk_get(dev, NULL);
+-	if (IS_ERR(qspi->clk)) {
+-		ret = PTR_ERR(qspi->clk);
+-		goto probe_master_put;
+-	}
++	if (dev->of_node) {
++		qspi->clk = devm_clk_get(dev, NULL);
++		if (IS_ERR(qspi->clk)) {
++			ret = PTR_ERR(qspi->clk);
++			goto probe_master_put;
++		}
+ 
+-	qspi->clk_rate = clk_get_rate(qspi->clk);
+-	if (!qspi->clk_rate) {
+-		ret = -EINVAL;
+-		goto probe_master_put;
+-	}
++		qspi->clk_rate = clk_get_rate(qspi->clk);
++		if (!qspi->clk_rate) {
++			ret = -EINVAL;
++			goto probe_master_put;
++		}
+ 
+-	pm_runtime_enable(dev);
+-	ret = pm_runtime_get_sync(dev);
+-	if (ret < 0) {
+-		pm_runtime_put_noidle(dev);
+-		goto probe_master_put;
+-	}
++		pm_runtime_enable(dev);
++		ret = pm_runtime_get_sync(dev);
++		if (ret < 0) {
++			pm_runtime_put_noidle(dev);
++			goto probe_master_put;
++		}
+ 
+-	ret = clk_prepare_enable(qspi->clk);
+-	if (ret) {
+-		dev_err(dev, "Failed to enable PCLK of the controller.\n");
+-		goto probe_clk_failed;
++		ret = clk_prepare_enable(qspi->clk);
++		if (ret) {
++			dev_err(dev, "Failed to enable PCLK of the controller.\n");
++			goto probe_clk_failed;
++		}
++	} else if (has_acpi_companion(dev)) {
++		qspi->clk_rate = 50000000;
+ 	}
+-
+ 	qspi->nodirmap = device_property_present(dev, "no-direct-mapping");
+ 	ctrl->mem_ops = qspi->nodirmap ?
+ 			&phytium_qspi_mem_ops_nodirmap :
+@@ -810,7 +833,12 @@ static const struct of_device_id phytium_qspi_of_match[] = {
+ 	{ .compatible = "phytium,qspi-nor" },
+ 	{ }
+ };
++static const struct acpi_device_id phytium_qspi_acpi_match[] = {
++	{ "PHYT0011", 0 },
++	{ }
++};
+ MODULE_DEVICE_TABLE(of, phytium_qspi_of_match);
++MODULE_DEVICE_TABLE(acpi, phytium_qspi_acpi_match);
+ 
+ static struct platform_driver phytium_qspi_driver = {
+ 	.probe = phytium_qspi_probe,
+@@ -818,6 +846,7 @@ static struct platform_driver phytium_qspi_driver = {
+ 	.driver = {
+ 		.name = "phytium-qspi",
+ 		.of_match_table = of_match_ptr(phytium_qspi_of_match),
++		.acpi_match_table = ACPI_PTR(phytium_qspi_acpi_match),
+ 		.pm = &phytium_qspi_pm_ops,
+ 	},
+ };
+diff --git a/include/linux/mtd/partitions.h b/include/linux/mtd/partitions.h
+index b74a539ec581..73f16747d9bc 100644
+--- a/include/linux/mtd/partitions.h
++++ b/include/linux/mtd/partitions.h
+@@ -51,6 +51,7 @@ struct mtd_partition {
+ 	uint32_t mask_flags;		/* master MTD flags to mask out for this partition */
+ 	uint32_t add_flags;		/* flags to add to the partition */
+ 	struct device_node *of_node;
++	struct fwnode_handle *fwnode;
+ };
+ 
+ #define MTDPART_OFS_RETAIN	(-3)
+@@ -61,6 +62,8 @@ struct mtd_partition {
+ 
+ struct mtd_info;
+ struct device_node;
++struct acpi_device;
++struct hwnode_handle;
+ 
+ /**
+  * struct mtd_part_parser_data - used to pass data to MTD partition parsers.
+@@ -80,6 +83,7 @@ struct mtd_part_parser {
+ 	struct module *owner;
+ 	const char *name;
+ 	const struct of_device_id *of_match_table;
++	const struct acpi_device_id *acpi_match_table;
+ 	int (*parse_fn)(struct mtd_info *, const struct mtd_partition **,
+ 			struct mtd_part_parser_data *);
+ 	void (*cleanup)(const struct mtd_partition *pparts, int nr_parts);
+-- 
+2.47.0
+

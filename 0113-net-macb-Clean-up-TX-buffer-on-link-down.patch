@@ -1,0 +1,66 @@
+From 8a37a8cfd0294bdbd324a86acd4bcccae9fa505d Mon Sep 17 00:00:00 2001
+From: Song Wenting <songwenting@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:09 +0800
+Subject: [PATCH 113/150] net: macb: Clean up TX buffer on link down
+
+This patch addresses an issue where memory leaks occur when the network
+link goes down with pending packets. To solve the issue, we manually
+handle and unmap all pending TX packets when the links goes down.
+
+Signed-off-by: Song Wenting <songwenting@phytium.com.cn>
+Signed-off-by: Li Wencheng <liwencheng@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I844a227ca74b6d442fb5bcb0fea960a418412064
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/net/ethernet/cadence/macb_main.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+index 9a2654e8d876..6ea695de8226 100644
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -105,6 +105,10 @@ struct sifive_fu540_macb_mgmt {
+ 
+ #define MACB_MDIO_TIMEOUT	1000000 /* in usecs */
+ 
++static void macb_tx_unmap(struct macb *bp,
++			  struct macb_tx_skb *tx_skb,
++			  int budget);
++
+ /* DMA buffer descriptor might be different size
+  * depends on hardware configuration:
+  *
+@@ -882,9 +886,11 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
+ {
+ 	struct net_device *ndev = to_net_dev(config->dev);
+ 	struct macb *bp = netdev_priv(ndev);
++	struct macb_tx_skb *tx_skb;
+ 	struct macb_queue *queue;
+ 	unsigned int q;
+ 	u32 ctrl;
++	int i;
+ 
+ 	if (!(bp->caps & MACB_CAPS_MACB_IS_EMAC))
+ 		for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue)
+@@ -895,6 +901,16 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
+ 	ctrl = macb_readl(bp, NCR) & ~(MACB_BIT(RE) | MACB_BIT(TE)) & ~(MACB_BIT(2PT5G));
+ 	macb_writel(bp, NCR, ctrl);
+ 
++	/* Tx clean */
++	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
++		for (i = 0; i < bp->tx_ring_size; i++) {
++			tx_skb = macb_tx_skb(queue, i);
++			/* free unsent skb buffers */
++			if (tx_skb)
++				macb_tx_unmap(bp, tx_skb, 0);
++		}
++	}
++
+ 	netif_tx_stop_all_queues(ndev);
+ }
+ 
+-- 
+2.47.0
+

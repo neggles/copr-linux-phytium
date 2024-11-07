@@ -1,0 +1,140 @@
+From adbca878119e40ae3744c67b106ab5ad0d5b55e7 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:07 +0800
+Subject: [PATCH 092/150] iommu/arm-smmu: Add SMMU workaround for Phytium
+ Ps17064
+
+There are two hacks needed for IOMMU enablement on Phytium
+Ps17064 SoC. One is the MSI hack, the other is the SMMU hack.
+
+When using this enablement, we assumes that users would set
+CONIFIG_IOMMU_DEFAULT_PASSTHROUGH=y or pass 'iommu.passthrough=on'
+or 'iommu.pt' as the kernel command-line parameters. Therefore,
+we also force default iommu domain type to IOMMU_DOMAIN_IDENTITY
+on Ps17064 to avoid unnecessary troubles.
+
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I60a83f56b791e36fab8b1cfec62a760dd70d1f81
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/iommu/arm/arm-smmu/arm-smmu.c | 13 +++++++++++++
+ drivers/iommu/arm/arm-smmu/arm-smmu.h |  5 +++++
+ drivers/iommu/iommu.c                 | 25 +++++++++++++++++++++++++
+ drivers/irqchip/irq-gic-v3-its.c      |  3 ++-
+ 4 files changed, 45 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/iommu/arm/arm-smmu/arm-smmu.c b/drivers/iommu/arm/arm-smmu/arm-smmu.c
+index d6d1a2a55cc0..ee910444b841 100644
+--- a/drivers/iommu/arm/arm-smmu/arm-smmu.c
++++ b/drivers/iommu/arm/arm-smmu/arm-smmu.c
+@@ -1363,6 +1363,19 @@ static struct iommu_device *arm_smmu_probe_device(struct device *dev)
+ 		return ERR_PTR(-ENODEV);
+ 	}
+ 
++#ifdef CONFIG_ARCH_PHYTIUM
++	/* Phytium Ps17064 workaround patch */
++	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_PS17064) {
++		int num = fwspec->num_ids;
++
++		for (i = 0; i < num; i++) {
++			u32 fwid = FWID_READ(fwspec->ids[i]);
++
++			iommu_fwspec_add_ids(dev, &fwid, 1);
++		}
++	}
++#endif
++
+ 	ret = -EINVAL;
+ 	for (i = 0; i < fwspec->num_ids; i++) {
+ 		u16 sid = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[i]);
+diff --git a/drivers/iommu/arm/arm-smmu/arm-smmu.h b/drivers/iommu/arm/arm-smmu/arm-smmu.h
+index 703fd5817ec1..723532e24f60 100644
+--- a/drivers/iommu/arm/arm-smmu/arm-smmu.h
++++ b/drivers/iommu/arm/arm-smmu/arm-smmu.h
+@@ -10,6 +10,7 @@
+ #ifndef _ARM_SMMU_H
+ #define _ARM_SMMU_H
+ 
++#include <asm/cputype.h>
+ #include <linux/atomic.h>
+ #include <linux/bitfield.h>
+ #include <linux/bits.h>
+@@ -23,6 +24,10 @@
+ #include <linux/spinlock.h>
+ #include <linux/types.h>
+ 
++#ifdef CONFIG_ARCH_PHYTIUM
++#define FWID_READ(id) (((u16)(id) >> 3) | (((id) >> 16 | 0x7000) << 16))
++#endif
++
+ /* Configuration registers */
+ #define ARM_SMMU_GR0_sCR0		0x0
+ #define ARM_SMMU_sCR0_VMID16EN		BIT(31)
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 3f1029c0825e..a998f13adfb8 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -32,6 +32,9 @@
+ #include <trace/events/iommu.h>
+ #include <linux/sched/mm.h>
+ #include <linux/msi.h>
++#ifdef CONFIG_ARCH_PHYTIUM
++#include <asm/cputype.h>
++#endif
+ 
+ #include "dma-iommu.h"
+ #include "iommu-priv.h"
+@@ -198,6 +201,15 @@ static int __init iommu_subsys_init(void)
+ 			iommu_set_default_passthrough(false);
+ 		else
+ 			iommu_set_default_translated(false);
++#ifdef CONFIG_ARCH_PHYTIUM
++		/*
++		 * Always set default iommu type to IOMMU_DOMAIN_IDENTITY
++		 * on Phytium Ps17064 SoC to avoid unnecessary troubles
++		 * introduced by the SMMU workaround.
++		 */
++		if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_PS17064)
++			iommu_set_default_passthrough(true);
++#endif
+ 
+ 		if (iommu_default_passthrough() && cc_platform_has(CC_ATTR_MEM_ENCRYPT)) {
+ 			pr_info("Memory encryption detected - Disabling default IOMMU Passthrough\n");
+@@ -648,6 +660,19 @@ static int __init iommu_set_def_domain_type(char *str)
+ 	if (ret)
+ 		return ret;
+ 
++#ifdef CONFIG_ARCH_PHYTIUM
++	/*
++	 * Always set default iommu type to IOMMU_DOMAIN_IDENTITY
++	 * on Phytium Ps17064 SoC to avoid unnecessary troubles
++	 * introduced by the SMMU workaround.
++	 */
++	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_PS17064) {
++		iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
++		iommu_set_default_passthrough(true);
++		return 0;
++	}
++#endif
++
+ 	if (pt)
+ 		iommu_set_default_passthrough(true);
+ 	else
+diff --git a/drivers/irqchip/irq-gic-v3-its.c b/drivers/irqchip/irq-gic-v3-its.c
+index b1e60c13c1e1..35d4ee048ed8 100644
+--- a/drivers/irqchip/irq-gic-v3-its.c
++++ b/drivers/irqchip/irq-gic-v3-its.c
+@@ -1736,7 +1736,8 @@ static void its_irq_compose_msi_msg(struct irq_data *d, struct msi_msg *msg)
+ 	msg->address_hi		= upper_32_bits(addr);
+ 	msg->data		= its_get_event_id(d);
+ 
+-	iommu_dma_compose_msi_msg(irq_data_get_msi_desc(d), msg);
++	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) != MIDR_PHYTIUM_PS17064)
++		iommu_dma_compose_msi_msg(irq_data_get_msi_desc(d), msg);
+ }
+ 
+ static int its_irq_set_irqchip_state(struct irq_data *d,
+-- 
+2.47.0
+

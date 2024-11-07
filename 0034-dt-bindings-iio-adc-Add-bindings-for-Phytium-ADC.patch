@@ -1,0 +1,118 @@
+From 0c0243fc6b4092ca5c94f11b2427edde00a1c767 Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:02 +0800
+Subject: [PATCH 034/150] dt-bindings: iio: adc: Add bindings for Phytium ADC
+
+This patch adds the DT bindings for Phytium ADC.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I8604ae466e8508a50ee83849c1988e992a035039
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ .../bindings/iio/adc/phytium,adc.yaml         | 81 +++++++++++++++++++
+ MAINTAINERS                                   |  1 +
+ 2 files changed, 82 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/iio/adc/phytium,adc.yaml
+
+diff --git a/Documentation/devicetree/bindings/iio/adc/phytium,adc.yaml b/Documentation/devicetree/bindings/iio/adc/phytium,adc.yaml
+new file mode 100644
+index 000000000000..cfbf6554a105
+--- /dev/null
++++ b/Documentation/devicetree/bindings/iio/adc/phytium,adc.yaml
+@@ -0,0 +1,81 @@
++# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
++# Copyright 2019 Analog Devices Inc.
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/iio/adc/phytium,adi.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Phytium ADC
++
++maintainers:
++  - Chen Baozi <chenbaozi@phytium.com.cn>
++
++description: |
++  This device is a 10-bit converter for 8 voltage channels. All inputs are
++  single ended.
++
++properties:
++  compatible:
++    const: phytium,adc
++
++  reg:
++    maxItems: 1
++
++  clocks:
++    maxItems: 1
++    description: Input clock used to derive the sample clock.
++
++  interrupts:
++    maxItems: 1
++
++  '#address-cells':
++    const: 1
++
++  '#size-cells':
++    const: 0
++
++
++required:
++  - compatible
++  - reg
++  - clocks
++  - interrupts
++  - '#address-cells'
++  - '#size-cells'
++
++examples:
++  - |
++    adc0: adc@2807b000 {
++      compatible = "phytium,adc";
++      reg = <0x0 0x2807b000 0x0 0x1000>;
++      interrupts = <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>;
++      clocks = <&sysclk_48mhz>;
++
++      #address-cells = <1>;
++      #size-cells = <0>;
++
++      channel@0 {
++        reg = <0>;
++      };
++      channel@1 {
++        reg = <1>;
++      };
++      channel@2 {
++        reg = <2>;
++      };
++      channel@3 {
++        reg = <3>;
++      };
++      channel@4 {
++       reg = <4>;
++      };
++      channel@5 {
++        reg = <5>;
++      };
++      channel@6 {
++        reg = <5>;
++      };
++      channel@7 {
++        reg = <7>;
++      };
++    };
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 16fd4c4fb272..cc62b296704e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2532,6 +2532,7 @@ S:	Maintained
+ W:	https://www.phytium.com.cn
+ F:	Documentation/devicetree/bindings/gpio/phytium,gpio.yaml
+ F:	Documentation/devicetree/bindings/i2c/phytium,i2c.yaml
++F:	Documentation/devicetree/bindings/iio/adc/phytium,adc.yaml
+ F:	Documentation/devicetree/bindings/mmc/phytium,mci.yaml
+ F:	Documentation/devicetree/bindings/mmc/phytium,sdci.yaml
+ F:	Documentation/devicetree/bindings/mtd/phytium,nfc.yaml
+-- 
+2.47.0
+

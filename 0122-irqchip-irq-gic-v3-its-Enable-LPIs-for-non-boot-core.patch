@@ -1,0 +1,58 @@
+From 7f6db65ee0ec1c46e56e754f99b382cbf669c7df Mon Sep 17 00:00:00 2001
+From: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:10 +0800
+Subject: [PATCH 122/150] irqchip/irq-gic-v3-its: Enable LPIs for non-boot
+ cores
+
+Currently Firmware only restores GICR_CTLR_ENABLE_LPIs for
+boot CPU, when resuming from S3. This patch restores other
+CPUs as well.
+
+Signed-off-by: Wang Xu <wangxu@phytium.com.cn>
+Signed-off-by: Feng Jun <fengjun@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Id60a7e02b89785a95fda6fdb2ddf9e5b809443a9
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/irqchip/irq-gic-v3-its.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/drivers/irqchip/irq-gic-v3-its.c b/drivers/irqchip/irq-gic-v3-its.c
+index 35d4ee048ed8..10eee2b04604 100644
+--- a/drivers/irqchip/irq-gic-v3-its.c
++++ b/drivers/irqchip/irq-gic-v3-its.c
+@@ -4879,6 +4879,7 @@ static void its_restore_enable(void)
+ {
+ 	struct its_node *its;
+ 	int ret;
++	int cpu;
+ 
+ 	raw_spin_lock(&its_lock);
+ 	list_for_each_entry(its, &its_nodes, entry) {
+@@ -4932,6 +4933,22 @@ static void its_restore_enable(void)
+ 		    GITS_TYPER_HCC(gic_read_typer(base + GITS_TYPER)))
+ 			its_cpu_init_collection(its);
+ 	}
++
++	/*
++	 * Enable LPIs for non-boot CPU since some firmwares
++	 * fail to do so.
++	 */
++	for_each_possible_cpu(cpu) {
++		void __iomem *rbase = gic_data_rdist_cpu(cpu)->rd_base;
++		u32 val;
++
++		val = readl_relaxed(rbase + GICR_CTLR);
++		if (val & GICR_CTLR_ENABLE_LPIS)
++			continue;
++
++		val |= GICR_CTLR_ENABLE_LPIS;
++		writel_relaxed(val, rbase + GICR_CTLR);
++	}
+ 	raw_spin_unlock(&its_lock);
+ }
+ 
+-- 
+2.47.0
+

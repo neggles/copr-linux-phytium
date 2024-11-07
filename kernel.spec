@@ -137,7 +137,7 @@ Summary: The Linux kernel
 #
 
 # kernel package name
-%global package_name kernel-longterm
+%global package_name kernel-phytium
 %global gemini 0
 # Include Fedora files
 %global include_fedora 1
@@ -643,16 +643,16 @@ Release: %{pkg_release}
 # DO NOT CHANGE THE 'ExclusiveArch' LINE TO TEMPORARILY EXCLUDE AN ARCHITECTURE BUILD.
 # SET %%nobuildarches (ABOVE) INSTEAD
 %if 0%{?fedora}
-ExclusiveArch: noarch x86_64 s390x aarch64 ppc64le
+ExclusiveArch: noarch aarch64
 %else
-ExclusiveArch: noarch i386 i686 x86_64 s390x aarch64 ppc64le
+ExclusiveArch: noarch aarch64
 %endif
 ExclusiveOS: Linux
 %ifnarch %{nobuildarches}
 Requires: kernel-core-uname-r = %{KVERREL}
 Requires: kernel-modules-uname-r = %{KVERREL}
 Requires: kernel-modules-core-uname-r = %{KVERREL}
-Provides: installonlypkg(kernel-longterm)
+Provides: installonlypkg(kernel-phytium)
 %endif
 
 
@@ -968,6 +968,8 @@ Source3001: kernel-local
 %if %{patchlist_changelog}
 Source3002: Patchlist.changelog
 %endif
+# phytium config
+Source3003: kernel-aarch64-phytium-fedora.config
 
 Source4000: README.rst
 Source4001: rpminspect.yaml
@@ -990,6 +992,158 @@ Patch2: patch-%{patchversion}-tegra.patch
 
 # empty final patch to facilitate testing of kernel patches
 Patch999999: linux-kernel-test.patch
+
+# Phytium kernel patches
+Patch6000: 0001-MAINTAINERS-Add-entry-for-Phytium-SoC-family.patch
+Patch6001: 0002-arm64-phytium-Add-support-for-Phytium-SoC-family.patch
+Patch6002: 0003-of-add-vendor-prefix-for-Phytium-Technology-Co.-Ltd.patch
+Patch6003: 0004-PCI-Add-Phytium-vendor-ID.patch
+Patch6004: 0005-arm64-Add-MIDR-encoding-for-Phytium-CPUs.patch
+Patch6005: 0006-arm64-Fix-MIDR-value-of-Phytium-FTC310-core.patch
+Patch6006: 0007-arm64-kpti-Add-Phytium-FTC3xx-6xx-CPU-cores-to-kpti-.patch
+Patch6007: 0008-arm64-proton-pack-Add-Phytium-FTC310-CPU-core-to-spe.patch
+Patch6008: 0009-dt-bindings-arm-Document-Phytium-FTC-series-cpu.patch
+Patch6009: 0010-dt-bindings-gpio-Add-bindings-for-Phytium-GPIO.patch
+Patch6010: 0011-gpio-phytium-Add-Phytium-GPIO-driver.patch
+Patch6011: 0012-scripts-dtc-Revert-upstream-commit-9bb9b8d0b4a0.patch
+Patch6012: 0013-dt-bindings-mmc-phytium-Add-bindings-for-Phytium-SDC.patch
+Patch6013: 0014-mmc-add-Phytium-SD-host-controller-support.patch
+Patch6014: 0015-dt-bindings-spi-phyhtium-add-bindings-for-Phytium-SP.patch
+Patch6015: 0016-spi-add-Phytium-SPI-controller-support.patch
+Patch6016: 0017-dt-bindings-spi-phytium-qspi-Document-device-tree-bi.patch
+Patch6017: 0018-spi-phytium-qspi-Add-support-for-Phytium-QSPI-contro.patch
+Patch6018: 0019-mtd-parsers-Add-ACPI-table-support-for-qspi-spi-driv.patch
+Patch6019: 0020-dt-bindings-can-phytium-Add-bindings-for-Phytium-CAN.patch
+Patch6020: 0021-can-add-Phytium-CAN-controller-support.patch
+Patch6021: 0022-dt-bindings-Add-bindings-for-Phytium-HDA-controller.patch
+Patch6022: 0023-ALSA-hda-Add-driver-for-Phytium-SoC-HDA.patch
+Patch6023: 0024-serial-phytium-Add-a-new-driver-for-Phytium-PCI-UART.patch
+Patch6024: 0025-Input-Add-a-new-serio-driver-for-Phytium-PCI-PS-2-co.patch
+Patch6025: 0026-dt-bindings-Add-bindings-for-Phytium-I2C-SMBus-contr.patch
+Patch6026: 0027-i2c-phytium-Add-i2c-driver-for-Phytium-I2C-adapter.patch
+Patch6027: 0028-dt-bindings-mmc-phytium-Add-bindings-for-Phytium-MCI.patch
+Patch6028: 0029-mmc-phytium-Add-support-for-the-Phytium-MMC.patch
+Patch6029: 0030-dt-bindings-mtd-Add-Nand-Flash-Controller-support-fo.patch
+Patch6030: 0031-mtd-rawnand-Add-Phytium-NAND-flash-controller-suppor.patch
+Patch6031: 0032-dt-bindings-w1-Add-bindings-for-Phytium-onewire-cont.patch
+Patch6032: 0033-w1-phytium_w1-add-Phytium-w1-bus-master-driver.patch
+Patch6033: 0034-dt-bindings-iio-adc-Add-bindings-for-Phytium-ADC.patch
+Patch6034: 0035-iio-adc-Add-Phytium-ADC-support.patch
+Patch6035: 0036-dt-bindings-hwspinlock-Add-binding-documentation-for.patch
+Patch6036: 0037-hwspinlock-phytium-Add-support-for-Phytium-hardware-.patch
+Patch6037: 0038-dt-bindings-Add-bindings-for-Phytium-HW-RNG.patch
+Patch6038: 0039-hwrng-phytium-Add-support-for-Phytium-SoC-RNG.patch
+Patch6039: 0040-dt-bindings-media-Add-binding-for-Phytium-JPEG-Encod.patch
+Patch6040: 0041-media-phytium-jpeg-Add-a-Phytium-JPEG-Engine-driver.patch
+Patch6041: 0042-dt-bindings-input-Add-bindings-for-Phytium-Keypad.patch
+Patch6042: 0043-Input-phytium-keypad-Add-Phytium-keypad-driver.patch
+Patch6043: 0044-dt-bindings-pwm-Add-bindings-for-Phytium-PWM-control.patch
+Patch6044: 0045-pwm-phytium-Add-Phytium-SoC-PWM-support.patch
+Patch6045: 0046-dt-bindings-phytium-sgpio-Add-bindings-for-Phytium-S.patch
+Patch6046: 0047-gpio-gpio-phytium-sgpio-Add-Phytium-SGPIO-driver.patch
+Patch6047: 0048-dt-bindings-ipmi-Add-bindings-for-Phytium-KCS.patch
+Patch6048: 0049-ipmi-Add-Phytium-KCS-IPMI-BMC-driver-support.patch
+Patch6049: 0050-dt-bindings-ipmi-Add-bindings-for-Phytium-BT.patch
+Patch6050: 0051-ipmi-Add-Phytium-BT-BMC-driver-support.patch
+Patch6051: 0052-dt-bindings-Add-a-binding-for-Phytium-tachometer.patch
+Patch6052: 0053-hwmon-tacho-phytium-Add-fan-tacho-driver-support.patch
+Patch6053: 0054-optee-add-ACPI-support-for-Phytium.patch
+Patch6054: 0055-optee-Add-default-conduit-method-options.patch
+Patch6055: 0056-dt-bindings-mailbox-phytium-Add-a-bindings-for-Phyti.patch
+Patch6056: 0057-mailbox-Add-support-for-Phytium-SoC-mailbox-driver.patch
+Patch6057: 0058-PCI-ACPI-Add-stacked-IRQ-domain-support-to-PCI-Inter.patch
+Patch6058: 0059-dt-bindings-phytium-ixic-Add-bindings-for-Phytium-IX.patch
+Patch6059: 0060-irqchip-ixic-Add-support-for-Phytium-INTx-controller.patch
+Patch6060: 0061-dt-bindings-PCI-phytium-Add-DT-bindings-for-PCIe-end.patch
+Patch6061: 0062-pci-phytium-Add-PCIe-endpoint-controller-support.patch
+Patch6062: 0063-dt-bindings-Add-bindings-for-Phytium-USBHS-DRD-contr.patch
+Patch6063: 0064-usb-phytium-Add-support-for-Phytium-USB-controller.patch
+Patch6064: 0065-dt-bindings-usb-xhci-Add-Phytium-Pe220x-support.patch
+Patch6065: 0066-xHCI-add-XHCI_RESET_ON_RESUME-quirk-for-Phytium-xHCI.patch
+Patch6066: 0067-xHCI-Add-XHCI_SLOWDOWN_QUIRK-quirk-for-phytium-xHCI-.patch
+Patch6067: 0068-usb-xhci-xhci-plat-Add-XHCI_RESET_ON_RESUME-quirk-fo.patch
+Patch6068: 0069-dt-bindings-Add-a-new-binding-for-Phytium-display-en.patch
+Patch6069: 0070-drm-phytium-Add-Phytium-Display-Engine-support.patch
+Patch6070: 0071-ASoC-codecs-Add-everest-es8388-codec-support.patch
+Patch6071: 0072-ASoC-codecs-Add-everest-es8336-codec-support.patch
+Patch6072: 0073-dt-bindings-Add-bindings-for-Phytium-I2S-controller.patch
+Patch6073: 0074-ASoC-phytium-Add-phytium-I2S-support.patch
+Patch6074: 0075-ASoC-phytium-Add-phytium-machine-with-es8388-support.patch
+Patch6075: 0076-ASoC-phytium-Add-phytium-machine-with-es8336-support.patch
+Patch6076: 0077-ASoC-phytium-Add-phytium-machine-with-px210-DP-suppo.patch
+Patch6077: 0078-mfd-Add-support-for-Phytium-Px210-I2S-controller-on-.patch
+Patch6078: 0079-mfd-Add-support-for-Phytium-Px210-I2S-controller-on-.patch
+Patch6079: 0080-ASoC-phytium-Add-support-for-platform-driver-model.patch
+Patch6080: 0081-ASoC-codec-Handle-mute-of-different-directions.patch
+Patch6081: 0082-ASoC-codec-This-patch-makes-ES8336-module-reload-smo.patch
+Patch6082: 0083-ASoC-codec-Ensure-to-use-appropriate-level-to-enable.patch
+Patch6083: 0084-sound-Soc-Add-lock-init-in-Phytium-I2S-driver.patch
+Patch6084: 0085-i2s-phytium-Add-clock-divider-in-S3-resume.patch
+Patch6085: 0086-i2s-phytium-Support-for-24bit-and-32bit-format.patch
+Patch6086: 0087-i2s-phytium-Exchange-DMA-channels.patch
+Patch6087: 0088-i2c-designware-add-i2c-support-for-Phytium-SoCs.patch
+Patch6088: 0089-ACPI-APD-Add-clock-frequency-for-Phytium-I2C-control.patch
+Patch6089: 0090-ACPI-APD-Add-clock-frequency-for-Phytium-Pe220x-I2C-.patch
+Patch6090: 0091-irqchip-gic-phytium-2500-Add-support-for-GIC-of-Phyt.patch
+Patch6091: 0092-iommu-arm-smmu-Add-SMMU-workaround-for-Phytium-Ps170.patch
+Patch6092: 0093-iommu-arm-smmu-v3-Add-suspend-and-resume-support.patch
+Patch6093: 0094-iommu-arm-smmu-v3-Change-pm-interface-during-system-.patch
+Patch6094: 0095-watchdog-dw-Add-ACPI-support-to-dw-wdt.patch
+Patch6095: 0096-dt-bindings-net-dwmac-Add-bindings-for-Phytium-DWMAC.patch
+Patch6096: 0097-net-stmmac-Add-Phytium-GMAC-glue-layer.patch
+Patch6097: 0098-net-stmmac-Add-a-barrier-to-make-sure-all-access-coh.patch
+Patch6098: 0099-dt-bindings-i3c-cdns-Add-compatible-string-for-Phyti.patch
+Patch6099: 0100-i3c-cdns-add-support-for-Phytium-workaround.patch
+Patch6100: 0101-i3c-cdns-Add-GETMXDS-format-1-retransmission.patch
+Patch6101: 0102-i3c-cdns-Fix-DAA-fail-at-high-frequency.patch
+Patch6102: 0103-net-macb-restart-tx-after-tx-used-bit-read-for-multi.patch
+Patch6103: 0104-net-macb-Support-NCSI-mode.patch
+Patch6104: 0105-dt-bindings-net-macb-Add-compatible-string-for-Phyti.patch
+Patch6105: 0106-net-macb-Add-compatible-string-for-Phytium-SoCs.patch
+Patch6106: 0107-net-macb-add-clock-selection-support-to-match-the-sp.patch
+Patch6107: 0108-net-macb-Add-ACPI-support-for-Phytium-XMAC.patch
+Patch6108: 0109-net-macb-Add-USXGMII-5GBASER-2500BASEX-clock-selecti.patch
+Patch6109: 0110-dt-bindings-macb-Add-bindings-for-Phytium-GEM-2.0.patch
+Patch6110: 0111-net-macb-Add-support-for-Phytium-GEM-2.0.patch
+Patch6111: 0112-net-macb-Clean-2500BASEX-clock-selection-code.patch
+Patch6112: 0113-net-macb-Clean-up-TX-buffer-on-link-down.patch
+Patch6113: 0114-net-macb-Allocate-TX-RX-rings-in-the-DMA32-zone.patch
+Patch6114: 0115-net-macb-Initialize-all-descriptors-of-RX-rings.patch
+Patch6115: 0116-dt-bindings-edac-phytium-pe220x-edac-Add-Phytium-Pe2.patch
+Patch6116: 0117-EDAC-phytium-Add-Phytium-Pe220x-EDAC-driver.patch
+Patch6117: 0118-dt-bindings-dma-phytium-ddma-Add-bindings-for-Phytiu.patch
+Patch6118: 0119-dmaengine-phytium-Add-DDMA-controller-driver-support.patch
+Patch6119: 0120-PCI-Mark-Px210-PCI-E-Extended-Tags-as-broken.patch
+Patch6120: 0121-PCI-phytium-Fix-find_first_zero_bit-limit.patch
+Patch6121: 0122-irqchip-irq-gic-v3-its-Enable-LPIs-for-non-boot-core.patch
+Patch6122: 0123-firmware-arm_scmi-Make-mailbox-transport-poll-on-Phy.patch
+Patch6123: 0124-rtc-ds1307-Add-ACPI-support-to-ds1307.patch
+Patch6124: 0125-perf-phytium-Support-for-Phytium-Soc-DDR-controller-.patch
+Patch6125: 0126-perf-phytium-Support-for-Phytium-Soc-PCIe-controller.patch
+Patch6126: 0127-arm64-ras-Add-ARM64-SEA-error-recovery-support.patch
+Patch6127: 0128-GHES-Add-a-notify-chain-for-process-memory-section.patch
+Patch6128: 0129-arm64-ras-Save-error-address-from-memory-section-for.patch
+Patch6129: 0130-RAS-Report-ARM-processor-information-to-userspace.patch
+Patch6130: 0131-ACPI-APEI-Add-SEI-notification-type-support-for-ARMv.patch
+Patch6131: 0132-dt-bindings-phytmac-Add-bindings-for-Phytium-MAC.patch
+Patch6132: 0133-net-phytium-Add-support-for-phytium-GMAC.patch
+Patch6133: 0134-net-phy-Bugfix-rmmod-phylink-module-fail-problem.patch
+Patch6134: 0135-dt-bindings-phytnet_led-Add-bindings-for-Phytium-MAC.patch
+Patch6135: 0136-phytnetled-Add-link-act-led-driver-for-10G-mac.patch
+Patch6136: 0137-dt-bindings-Add-bindings-for-Phytium-I3C-controller.patch
+Patch6137: 0138-i3c-phytium-Add-support-for-Phytium-i3c-controller.patch
+Patch6138: 0139-arm64-dts-phytium-Add-dts-for-Phytium-Pe220x-SoCs.patch
+Patch6139: 0140-arm64-dts-phytium-Add-dts-for-Phytium-Pe220x-demo-bo.patch
+Patch6140: 0141-net-macb-Unregister-fixed-clock-defined-in-platform-.patch
+Patch6141: 0142-mtd-parsers-Fix-issues-with-standard-descriptions-on.patch
+Patch6142: 0143-mmc-phytium-Remove-the-capabilities-of-MMC_CAP_WAIT_.patch
+Patch6143: 0144-mmc-phytium-Fix-the-phase-problem-of-emmc-at-high-te.patch
+Patch6144: 0145-can-phytium-Optimize-the-low-performance-of-can-comm.patch
+Patch6145: 0146-optee-Fix-optee_smccc_hvc-to-optee_smccc_smc.patch
+Patch6146: 0147-drm-phytium-Add-function-phytium_fbdev_destroy-of-Di.patch
+Patch6147: 0148-Revert-xHCI-Add-XHCI_SLOWDOWN_QUIRK-quirk-for-phytiu.patch
+Patch6148: 0149-net-macb-phytium-Allocate-temporary-clocks-per-insta.patch
+Patch6149: 0150-ipmi-phytium-Fix-phytium-KCS-IPMI-BMC-driver-issues.patch
 
 # END OF PATCH DEFINITIONS
 

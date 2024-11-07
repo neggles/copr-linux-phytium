@@ -1,0 +1,65 @@
+From 4250a87145faabc4c4e4974545bf0072eaaf2041 Mon Sep 17 00:00:00 2001
+From: Xie XiuQi <xiexiuqi@huawei.com>
+Date: Mon, 17 Jun 2024 19:33:11 +0800
+Subject: [PATCH 129/150] arm64/ras: Save error address from memory section for
+ recovery
+
+In some platform, when SEA triggerred, physical address might be
+reported by memory section, so we save it for error recovery later.
+
+Signed-off-by: Xie XiuQi <xiexiuqi@huawei.com>
+Tested-by: Wang Xiongfeng <wangxiongfeng2@huawei.com>
+Tested-by: Tyler Baicar <tbaicar@codeaurora.org>
+Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Tested-by: Peng Min <pengmin1540@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I18b462c54ac9582e9bc3e89493903680c3174d9a
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ arch/arm64/kernel/ras.c | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/arch/arm64/kernel/ras.c b/arch/arm64/kernel/ras.c
+index a52215bdea0e..b730d3a2197f 100644
+--- a/arch/arm64/kernel/ras.c
++++ b/arch/arm64/kernel/ras.c
+@@ -130,3 +130,34 @@ void ghes_arm_process_error(struct ghes *ghes, struct cper_sec_proc_arm *err)
+ 	if (info_saved)
+ 		set_thread_flag(TIF_SEA_NOTIFY);
+ }
++
++int ghes_mem_err_callback(struct notifier_block *nb, unsigned long val, void *data)
++{
++	bool info_saved = false;
++	struct ghes_mem_err *ghes_mem = (struct ghes_mem_err *)data;
++	struct cper_sec_mem_err *mem_err = ghes_mem->mem_err;
++
++	if ((ghes_mem->notify_type != ACPI_HEST_NOTIFY_SEA) ||
++	    (ghes_mem->severity != CPER_SEV_RECOVERABLE))
++		return 0;
++
++	if (mem_err->validation_bits & CPER_MEM_VALID_PA)
++		info_saved = sea_save_info(mem_err->physical_addr);
++
++	if (info_saved)
++		set_thread_flag(TIF_SEA_NOTIFY);
++
++	return 0;
++}
++
++static struct notifier_block ghes_mem_err_nb = {
++	.notifier_call	= ghes_mem_err_callback,
++};
++
++static int arm64_err_recov_init(void)
++{
++	atomic_notifier_chain_register(&ghes_mem_err_chain, &ghes_mem_err_nb);
++	return 0;
++}
++
++late_initcall(arm64_err_recov_init);
+-- 
+2.47.0
+

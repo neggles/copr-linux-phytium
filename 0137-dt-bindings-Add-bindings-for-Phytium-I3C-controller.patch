@@ -1,0 +1,74 @@
+From f046a122134fc81339db220b399384fe85ca9d96 Mon Sep 17 00:00:00 2001
+From: Wu Jinyong <wujinyong1788@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:11 +0800
+Subject: [PATCH 137/150] dt-bindings: Add bindings for Phytium I3C controller
+
+This patch documents the DT binding for the Phytium I3C controller.
+
+Signed-off-by: Wu Jinyong <wujinyong1788@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I487a1f69ebe3b253b401dc242ca36722ebc8f6db
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ .../bindings/i3c/phytium,i3c-master.yaml      | 35 +++++++++++++++++++
+ MAINTAINERS                                   |  1 +
+ 2 files changed, 36 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/i3c/phytium,i3c-master.yaml
+
+diff --git a/Documentation/devicetree/bindings/i3c/phytium,i3c-master.yaml b/Documentation/devicetree/bindings/i3c/phytium,i3c-master.yaml
+new file mode 100644
+index 000000000000..0e004735fd38
+--- /dev/null
++++ b/Documentation/devicetree/bindings/i3c/phytium,i3c-master.yaml
+@@ -0,0 +1,35 @@
++# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
++
++* Phytium I3C controller
++
++This I3C controller is for Phytium Soc.
++
++Required properties:
++- compatible: Shall be "phytium,cdns-i3c-master"
++- clocks: Shall reference the pclk and sysclk
++- clock-names: Shall contain "pclk" and "sysclk"
++- interrupts: The interrupt line connected to this I3C master
++- reg: I3C master registers
++- #address-cells: Shall be set to 1
++- #size-cells: Shall be set to 0
++- i2c-scl-hz: I2C CLK frequency
++- i3c-scl-hz: I3C CLK frequency
++
++Example:
++
++	i3c-master@28045000 {
++		compatible = "phytium,cdns-i3c-master";
++		reg = <0x0 0x28045000 0x0 0x1000>;
++		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
++		clocks = <&coreclock>, <&i3csysclock>;
++		clock-names = "pclk", "sysclk";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		i2c-scl-hz = <400000>;
++		i3c-scl-hz = <1000000>;
++
++		nunchuk: nunchuk@52 {
++			compatible = "nintendo,nunchuk";
++			reg = <0x52 0x0 0x10>;
++		};
++	};
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 0f367678f19f..996e776b4a70 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2538,6 +2538,7 @@ F:	Documentation/devicetree/bindings/gpu/phytium,dc.yaml
+ F:	Documentation/devicetree/bindings/hwlock/phytium,hwspinlock.yaml
+ F:	Documentation/devicetree/bindings/hwmon/phytium,tacho.yaml
+ F:	Documentation/devicetree/bindings/i2c/phytium,i2c.yaml
++F:	Documentation/devicetree/bindings/i3c/phytium,i3c-master.yaml
+ F:	Documentation/devicetree/bindings/media/phytium,jpeg.yaml
+ F:	Documentation/devicetree/bindings/iio/adc/phytium,adc.yaml
+ F:	Documentation/devicetree/bindings/input/phytium,keypad.yaml
+-- 
+2.47.0
+

@@ -1,0 +1,223 @@
+From 675d21ec704b35c4cd96ba7ac1b6b42cc1da06af Mon Sep 17 00:00:00 2001
+From: Song Wenting <songwenting@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:09 +0800
+Subject: [PATCH 107/150] net: macb: add clock selection support to match the
+ speed
+
+Macb on Phytium Pe220x SoC needs to select the right clock
+which matches the current speed. This patch introduce
+the customized routine which can select the right clock
+dynamically when detecting a speed change.
+
+Signed-off-by: Song Wenting <songwenting@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I6211c9a373c5482a374ce68f3e0cca8cd34569f9
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/net/ethernet/cadence/macb.h      |  26 +++++
+ drivers/net/ethernet/cadence/macb_main.c | 124 ++++++++++++++++++++++-
+ 2 files changed, 149 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 40a8f70ed092..bd94212c40cf 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -220,6 +220,31 @@
+ #define GEM_IDR(hw_q)		(0x0620 + ((hw_q) << 2))
+ #define GEM_IMR(hw_q)		(0x0640 + ((hw_q) << 2))
+ 
++#define GEM_SRC_SEL_LN			0x1C04
++#define GEM_DIV_SEL0_LN			0x1C08
++#define GEM_DIV_SEL1_LN			0x1C0C
++#define GEM_PMA_XCVR_POWER_STATE	0x1C10
++#define GEM_SPEED_MODE			0x1C14
++#define GEM_MII_SELECT			0x1C18
++#define GEM_SEL_MII_ON_RGMII		0x1C1C
++#define GEM_TX_CLK_SEL0			0x1C20
++#define GEM_TX_CLK_SEL1			0x1C24
++#define GEM_TX_CLK_SEL2			0x1C28
++#define GEM_TX_CLK_SEL3			0x1C2C
++#define GEM_RX_CLK_SEL0			0x1C30
++#define GEM_RX_CLK_SEL1			0x1C34
++#define GEM_CLK_250M_DIV10_DIV100_SEL	0x1C38
++#define GEM_TX_CLK_SEL5			0x1C3C
++#define GEM_TX_CLK_SEL6			0x1C40
++#define GEM_RX_CLK_SEL4			0x1C44
++#define GEM_RX_CLK_SEL5			0x1C48
++#define GEM_TX_CLK_SEL3_0		0x1C70
++#define GEM_TX_CLK_SEL4_0		0x1C74
++#define GEM_RX_CLK_SEL3_0		0x1C78
++#define GEM_RX_CLK_SEL4_0		0x1C7C
++#define GEM_RGMII_TX_CLK_SEL0		0x1C80
++#define GEM_RGMII_TX_CLK_SEL1		0x1C84
++
+ /* Bitfields in NCR */
+ #define MACB_LB_OFFSET		0 /* reserved */
+ #define MACB_LB_SIZE		1
+@@ -741,6 +766,7 @@
+ #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+ #define MACB_CAPS_SG_DISABLED			0x40000000
+ #define MACB_CAPS_MACB_IS_GEM			0x80000000
++#define MACB_CAPS_SEL_CLK_HW			0x00001000
+ 
+ /* LSO settings */
+ #define MACB_LSO_UFO_ENABLE			0x01
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+index a79d5c9e9a42..a70c4b282e7f 100644
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -88,6 +88,10 @@ struct sifive_fu540_macb_mgmt {
+ #define MACB_WOL_HAS_MAGIC_PACKET	(0x1 << 0)
+ #define MACB_WOL_ENABLED		(0x1 << 1)
+ 
++#define HS_SPEED_100M			0
++#define HS_SPEED_1000M			1
++#define HS_SPEED_2500M			2
++#define HS_SPEED_5000M			3
+ #define HS_SPEED_10000M			4
+ #define MACB_SERDES_RATE_10G		1
+ 
+@@ -563,6 +567,120 @@ static void macb_set_tx_clk(struct macb *bp, int speed)
+ 		netdev_err(bp->dev, "adjusting tx_clk failed.\n");
+ }
+ 
++static int phytium_gem_sel_clk(struct macb *bp, int spd)
++{
++	int speed = 0;
++
++	if (bp->phy_interface == PHY_INTERFACE_MODE_USXGMII) {
++		if (spd == SPEED_10000) {
++			gem_writel(bp, SRC_SEL_LN, 0x1);
++			gem_writel(bp, DIV_SEL0_LN, 0x4);
++			gem_writel(bp, DIV_SEL1_LN, 0x1);
++			gem_writel(bp, PMA_XCVR_POWER_STATE, 0x1);
++			speed = HS_SPEED_10000M;
++		}
++	} else if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII) {
++		if (spd == SPEED_2500) {
++			gem_writel(bp, DIV_SEL0_LN, 0x1);
++			gem_writel(bp, DIV_SEL1_LN, 0x2);
++			gem_writel(bp, PMA_XCVR_POWER_STATE, 0x1);
++			gem_writel(bp, TX_CLK_SEL0, 0x0);
++			gem_writel(bp, TX_CLK_SEL1, 0x1);
++			gem_writel(bp, TX_CLK_SEL2, 0x1);
++			gem_writel(bp, TX_CLK_SEL3, 0x1);
++			gem_writel(bp, RX_CLK_SEL0, 0x1);
++			gem_writel(bp, RX_CLK_SEL1, 0x0);
++			gem_writel(bp, TX_CLK_SEL3_0, 0x0);
++			gem_writel(bp, TX_CLK_SEL4_0, 0x0);
++			gem_writel(bp, RX_CLK_SEL3_0, 0x0);
++			gem_writel(bp, RX_CLK_SEL4_0, 0x0);
++			speed = HS_SPEED_2500M;
++		} else if (spd == SPEED_1000) {
++			gem_writel(bp, DIV_SEL0_LN, 0x4);
++			gem_writel(bp, DIV_SEL1_LN, 0x8);
++			gem_writel(bp, PMA_XCVR_POWER_STATE, 0x1);
++			gem_writel(bp, TX_CLK_SEL0, 0x0);
++			gem_writel(bp, TX_CLK_SEL1, 0x0);
++			gem_writel(bp, TX_CLK_SEL2, 0x0);
++			gem_writel(bp, TX_CLK_SEL3, 0x1);
++			gem_writel(bp, RX_CLK_SEL0, 0x1);
++			gem_writel(bp, RX_CLK_SEL1, 0x0);
++			gem_writel(bp, TX_CLK_SEL3_0, 0x0);
++			gem_writel(bp, TX_CLK_SEL4_0, 0x0);
++			gem_writel(bp, RX_CLK_SEL3_0, 0x0);
++			gem_writel(bp, RX_CLK_SEL4_0, 0x0);
++			speed = HS_SPEED_1000M;
++		} else if (spd == SPEED_100 || spd == SPEED_10) {
++			gem_writel(bp, DIV_SEL0_LN, 0x4);
++			gem_writel(bp, DIV_SEL1_LN, 0x8);
++			gem_writel(bp, PMA_XCVR_POWER_STATE, 0x1);
++			gem_writel(bp, TX_CLK_SEL0, 0x0);
++			gem_writel(bp, TX_CLK_SEL1, 0x0);
++			gem_writel(bp, TX_CLK_SEL2, 0x1);
++			gem_writel(bp, TX_CLK_SEL3, 0x1);
++			gem_writel(bp, RX_CLK_SEL0, 0x1);
++			gem_writel(bp, RX_CLK_SEL1, 0x0);
++			gem_writel(bp, TX_CLK_SEL3_0, 0x1);
++			gem_writel(bp, TX_CLK_SEL4_0, 0x0);
++			gem_writel(bp, RX_CLK_SEL3_0, 0x0);
++			gem_writel(bp, RX_CLK_SEL4_0, 0x1);
++			speed = HS_SPEED_100M;
++		}
++	} else if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII) {
++		if (spd == SPEED_1000) {
++			gem_writel(bp, MII_SELECT, 0x1);
++			gem_writel(bp, SEL_MII_ON_RGMII, 0x0);
++			gem_writel(bp, TX_CLK_SEL0, 0x0);
++			gem_writel(bp, TX_CLK_SEL1, 0x1);
++			gem_writel(bp, TX_CLK_SEL2, 0x0);
++			gem_writel(bp, TX_CLK_SEL3, 0x0);
++			gem_writel(bp, RX_CLK_SEL0, 0x0);
++			gem_writel(bp, RX_CLK_SEL1, 0x1);
++			gem_writel(bp, CLK_250M_DIV10_DIV100_SEL, 0x0);
++			gem_writel(bp, RX_CLK_SEL5, 0x1);
++			gem_writel(bp, RGMII_TX_CLK_SEL0, 0x1);
++			gem_writel(bp, RGMII_TX_CLK_SEL1, 0x0);
++			speed = HS_SPEED_1000M;
++		} else if (spd == SPEED_100) {
++			gem_writel(bp, MII_SELECT, 0x1);
++			gem_writel(bp, SEL_MII_ON_RGMII, 0x0);
++			gem_writel(bp, TX_CLK_SEL0, 0x0);
++			gem_writel(bp, TX_CLK_SEL1, 0x1);
++			gem_writel(bp, TX_CLK_SEL2, 0x0);
++			gem_writel(bp, TX_CLK_SEL3, 0x0);
++			gem_writel(bp, RX_CLK_SEL0, 0x0);
++			gem_writel(bp, RX_CLK_SEL1, 0x1);
++			gem_writel(bp, CLK_250M_DIV10_DIV100_SEL, 0x0);
++			gem_writel(bp, RX_CLK_SEL5, 0x1);
++			gem_writel(bp, RGMII_TX_CLK_SEL0, 0x0);
++			gem_writel(bp, RGMII_TX_CLK_SEL1, 0x0);
++			speed = HS_SPEED_100M;
++		} else {
++			gem_writel(bp, MII_SELECT, 0x1);
++			gem_writel(bp, SEL_MII_ON_RGMII, 0x0);
++			gem_writel(bp, TX_CLK_SEL0, 0x0);
++			gem_writel(bp, TX_CLK_SEL1, 0x1);
++			gem_writel(bp, TX_CLK_SEL2, 0x0);
++			gem_writel(bp, TX_CLK_SEL3, 0x0);
++			gem_writel(bp, RX_CLK_SEL0, 0x0);
++			gem_writel(bp, RX_CLK_SEL1, 0x1);
++			gem_writel(bp, CLK_250M_DIV10_DIV100_SEL, 0x1);
++			gem_writel(bp, RX_CLK_SEL5, 0x1);
++			gem_writel(bp, RGMII_TX_CLK_SEL0, 0x0);
++			gem_writel(bp, RGMII_TX_CLK_SEL1, 0x0);
++			speed = HS_SPEED_100M;
++		}
++	} else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII) {
++		speed = HS_SPEED_100M;
++		gem_writel(bp, RX_CLK_SEL5, 0x1);
++	}
++
++	gem_writel(bp, HS_MAC_CONFIG, GEM_BFINS(HS_MAC_SPEED, speed,
++						gem_readl(bp, HS_MAC_CONFIG)));
++
++	return 0;
++}
++
+ static void macb_usx_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
+ 				 phy_interface_t interface, int speed,
+ 				 int duplex)
+@@ -757,6 +875,9 @@ static void macb_mac_link_up(struct phylink_config *config,
+ 		if (rx_pause)
+ 			ctrl |= MACB_BIT(PAE);
+ 
++		if (bp->caps & MACB_CAPS_SEL_CLK_HW)
++			phytium_gem_sel_clk(bp, speed);
++
+ 		/* Initialize rings & buffers as clearing MACB_BIT(TE) in link down
+ 		 * cleared the pipeline and control registers.
+ 		 */
+@@ -4937,7 +5058,8 @@ static const struct macb_config versal_config = {
+ 
+ static const struct macb_config phytium_config = {
+ 	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_JUMBO |
+-		MACB_CAPS_GEM_HAS_PTP |	MACB_CAPS_BD_RD_PREFETCH,
++		MACB_CAPS_GEM_HAS_PTP |	MACB_CAPS_BD_RD_PREFETCH |
++		MACB_CAPS_SEL_CLK_HW,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+-- 
+2.47.0
+

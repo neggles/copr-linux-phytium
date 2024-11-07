@@ -1,0 +1,33 @@
+From 438921fd5fe4d4a18fd94823b22a2b4350776bce Mon Sep 17 00:00:00 2001
+From: Liu Tianyu <liutianyu1250@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:07 +0800
+Subject: [PATCH 084/150] sound: Soc: Add lock init in Phytium I2S driver
+
+Bugfixed the lock initialization in Phytium I2S driver.
+
+Signed-off-by: Liu Tianyu <liutianyu1250@phytium.com.cn>
+Signed-off-by: Li Mingzhe <limingzhe1839@phytium.com.cn>
+Signed-off-by: Wang Yinfeng <wangyinfeng@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I14e8abf89d02940a570f35ae15370d47bd7ae070
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ sound/soc/phytium/phytium_i2s.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sound/soc/phytium/phytium_i2s.c b/sound/soc/phytium/phytium_i2s.c
+index 648c70368218..a01f83a06874 100644
+--- a/sound/soc/phytium/phytium_i2s.c
++++ b/sound/soc/phytium/phytium_i2s.c
+@@ -1146,6 +1146,8 @@ static int azx_first_init(struct azx *chip)
+ 
+ 	synchronize_irq(bus->irq);
+ 
++	spin_lock_init(&bus->reg_lock);
++
+ 	if (!dma_set_mask(i2sdev, DMA_BIT_MASK(dma_bits))) {
+ 		err = dma_set_coherent_mask(i2sdev, DMA_BIT_MASK(dma_bits));
+ 	} else {
+-- 
+2.47.0
+

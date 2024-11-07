@@ -1,0 +1,33 @@
+From e7a3664ce050247efcc2cff3539652bfd742a7bb Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:00 +0800
+Subject: [PATCH 012/150] scripts/dtc: Revert upstream commit 9bb9b8d0b4a0
+
+Since we do have some instances of nr-gpios in the Linux kernel tree,
+such as gpio-adnp.txt and phytium,gpio.yaml. Though nr-gpios without
+a "vendor," prefix is invalid, we need to keep them for compatibility
+of old firmware.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: If6f2a03efeb692689d7a21ef897e50a1828d55d2
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ scripts/dtc/checks.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/dtc/checks.c b/scripts/dtc/checks.c
+index 9f31d2607182..e4d23040a3bb 100644
+--- a/scripts/dtc/checks.c
++++ b/scripts/dtc/checks.c
+@@ -1502,7 +1502,7 @@ static bool prop_is_gpio(struct property *prop)
+ 	 * *-gpios and *-gpio can appear in property names,
+ 	 * so skip over any false matches (only one known ATM)
+ 	 */
+-	if (strends(prop->name, ",nr-gpios"))
++	if (strends(prop->name, "nr-gpios"))
+ 		return false;
+ 
+ 	return strends(prop->name, "-gpios") ||
+-- 
+2.47.0
+

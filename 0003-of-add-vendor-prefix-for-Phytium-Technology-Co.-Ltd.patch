@@ -1,0 +1,30 @@
+From c05034a8be8b66806f53d79ec3519e485b54dc7c Mon Sep 17 00:00:00 2001
+From: Chen Baozi <chenbaozi@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:00 +0800
+Subject: [PATCH 003/150] of: add vendor prefix for Phytium Technology Co. Ltd.
+
+Add phytium to the list of DT vendor prefixes.
+
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: I3a7339f97405ebaaa4472704c7310ac7a37a79d1
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 573578db9509..133cfb2bb05c 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1045,6 +1045,8 @@ patternProperties:
+     description: PHICOMM Co., Ltd.
+   "^phytec,.*":
+     description: PHYTEC Messtechnik GmbH
++  "^phytium,.*":
++    description: Phytium Technology Co., Ltd.
+   "^picochip,.*":
+     description: Picochip Ltd
+   "^pine64,.*":
+-- 
+2.47.0
+

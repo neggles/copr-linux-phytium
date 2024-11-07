@@ -1,0 +1,42 @@
+From 13e1dda2038ca3724fde7135c22591043790c397 Mon Sep 17 00:00:00 2001
+From: Song Wenting <songwenting@phytium.com.cn>
+Date: Mon, 17 Jun 2024 19:33:08 +0800
+Subject: [PATCH 102/150] i3c: cdns: Fix DAA fail at high frequency
+
+This patch keeps the CTRL.hj_ack bit disabled until i3c_master_register()
+is completed in order to prevent slaves from indirect DAA, which causes
+the driver to fail DAA.
+
+Signed-off-by: Song Wenting <songwenting@phytium.com.cn>
+Signed-off-by: Chen Baozi <chenbaozi@phytium.com.cn>
+Change-Id: Ie8d158fe982e3b66cd83a4df259472628e2c4463
+Signed-off-by: Andrew Powers-Holmes <aholmes@omnom.net>
+---
+ drivers/i3c/master/i3c-master-cdns.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/i3c/master/i3c-master-cdns.c b/drivers/i3c/master/i3c-master-cdns.c
+index 3c147d662715..64eba655ecc7 100644
+--- a/drivers/i3c/master/i3c-master-cdns.c
++++ b/drivers/i3c/master/i3c-master-cdns.c
+@@ -1300,7 +1300,7 @@ static int cdns_i3c_master_bus_init(struct i3c_master_controller *m)
+ 	 * We will issue ENTDAA afterwards from the threaded IRQ handler.
+ 	 */
+ 	if (master->devdata->halt_disable)
+-		ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_MCS_EN;
++		ctrl |= CTRL_HJ_DISEC | CTRL_MCS_EN;
+ 	else
+ 		ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_HALT_EN | CTRL_MCS_EN;
+ 
+@@ -1675,6 +1675,8 @@ static int cdns_i3c_master_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_disable_sysclk;
+ 
++	writel(readl(master->regs + CTRL) | CTRL_HJ_ACK, master->regs + CTRL);
++
+ 	return 0;
+ 
+ err_disable_sysclk:
+-- 
+2.47.0
+
