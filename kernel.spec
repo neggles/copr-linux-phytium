@@ -1894,6 +1894,9 @@ ApplyOptionalPatch patch-%{patchversion}-redhat.patch
 ApplyOptionalPatch patch-%{patchversion}-tegra.patch
 %endif
 
+# apply phytium patch stack
+%autopatch -m 6000 -M 6999
+
 ApplyOptionalPatch linux-kernel-test.patch
 
 # END OF PATCH APPLICATIONS
